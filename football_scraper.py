@@ -14,6 +14,7 @@ from typing import List, Dict, Optional
 import sys
 import os
 import json
+from datetime import datetime, timedelta
 
 try:
     from colorama import init, Fore, Back, Style
@@ -171,7 +172,7 @@ class FootballScraper:
         print(f"{self.get_color('bold')}{self.get_color('bright_blue')} ⚽ FOOTBALL RESULTS SCRAPER ⚽ {self.get_color('reset')}")
         print(f"{self.get_color('bright_cyan')}{'='*60}{self.get_color('reset')}")
         print()
-        print(f"{self.get_color('yellow')}Select a league to view:{self.get_color('reset')}")
+        print(f"{self.get_color('yellow')}Select a league to view (Today's matches):{self.get_color('reset')}")
         print()
         
         for key, league in self.leagues.items():
@@ -181,13 +182,31 @@ class FootballScraper:
                 print(f"{self.get_color('white')}[{key}] {league['name']}{self.get_color('reset')}")
         
         print()
+        print(f"{self.get_color('cyan')}Other Options:{self.get_color('reset')}")
+        print(f"{self.get_color('bright_magenta')}[y] Yesterday's Results{self.get_color('reset')}")
+        print(f"{self.get_color('bright_blue')}[t] Tomorrow's Fixtures{self.get_color('reset')}")
+        print()
         print(f"{self.get_color('red')}[q] Quit{self.get_color('reset')}")
         print()
         
-    def fetch_matches(self) -> Optional[Dict]:
-        """Fetch matches and parse real BBC Sport data"""
+    def fetch_matches(self, date_offset: int = 0) -> Optional[Dict]:
+        """Fetch matches and parse real BBC Sport data
+        
+        Args:
+            date_offset: Number of days from today (0=today, -1=yesterday, 1=tomorrow)
+        """
         try:
-            response = self.session.get(self.base_url, timeout=15)
+            # Calculate the target date
+            target_date = datetime.now() + timedelta(days=date_offset)
+            date_str = target_date.strftime('%Y-%m-%d')
+            
+            # Modify URL to include date if not today
+            if date_offset != 0:
+                url = f"{self.base_url}/{date_str}"
+            else:
+                url = self.base_url
+            
+            response = self.session.get(url, timeout=15)
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -311,11 +330,31 @@ class FootballScraper:
             home_score = int(home.get('score', 0))
             away_score = int(away.get('score', 0))
             
-            # Extract status
+            # Extract status with enhanced indicators
             status = 'FT'  # Default
             if 'eventProgress' in event:
                 progress = event['eventProgress']
-                status = progress.get('state', 'FT')
+                state = progress.get('state', 'FT')
+                
+                # Check for live match status
+                if state == 'LIVE':
+                    # Extract current minute if available
+                    current_minute = progress.get('period', {}).get('current', {}).get('minute', '')
+                    added_time = progress.get('period', {}).get('current', {}).get('addedTime', '')
+                    
+                    if current_minute:
+                        if added_time and added_time != '0':
+                            status = f"{current_minute}+{added_time}'"
+                        else:
+                            status = f"{current_minute}'"
+                    else:
+                        status = 'LIVE'
+                elif state == 'HT':
+                    status = 'HT'
+                elif state == 'PRE_MATCH':
+                    status = 'vs'  # Upcoming fixture
+                else:
+                    status = 'FT'
             
             # Extract scorers and cards from actions, separated by team
             home_scorers = []
@@ -1092,13 +1131,23 @@ class FootballScraper:
                         print(f"{self.get_color('green')}DEBUG: Parsed via pattern: {teams} {scores}{self.get_color('reset')}")
                         break
             
-            # Extract status
+            # Extract status with enhanced detection
             status = 'FT'  # Default
-            status_keywords = ['FT', 'Full time', 'LIVE', 'HT', 'Half time']
-            for keyword in status_keywords:
-                if keyword.lower() in fixture_text.lower():
-                    status = 'FT' if 'full' in keyword.lower() or keyword == 'FT' else keyword
-                    break
+            status_text = fixture_text.lower()
+            
+            # Look for live match indicators with minute
+            live_minute_match = re.search(r'(\d+)\s*[\'"]?\s*(?:min|minute)', status_text)
+            if live_minute_match:
+                minute = live_minute_match.group(1)
+                status = f"{minute}'"
+            elif 'live' in status_text:
+                status = 'LIVE'
+            elif 'ht' in status_text or 'half time' in status_text:
+                status = 'HT'
+            elif 'vs' in status_text and ('ft' not in status_text and 'full time' not in status_text):
+                status = 'vs'  # Upcoming fixture
+            elif 'ft' in status_text or 'full time' in status_text:
+                status = 'FT'
             
             # Validate we have enough data
             if len(teams) >= 2 and len(scores) >= 2:
@@ -1257,12 +1306,24 @@ class FootballScraper:
                 home_color = 'white'
                 away_color = 'white'
             
-            # Display match with better spacing
+            # Color code the status indicator
+            if status == 'FT':
+                status_color = 'white'
+            elif status == 'vs':
+                status_color = 'bright_blue'  # Upcoming fixtures
+            elif status == 'HT':
+                status_color = 'yellow'
+            elif status == 'LIVE' or "'" in status:
+                status_color = 'bright_red'  # Live matches
+            else:
+                status_color = 'cyan'
+            
+            # Display match with better spacing and enhanced status
             print(f"{self.get_color('cyan')}Match {i}:{self.get_color('reset')} {self.get_color('bright_yellow')}{match_time}{self.get_color('reset')}")
             print(f"  {self.get_color(home_color)}{home_team:<30}{self.get_color('reset')} "
                   f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')} "
                   f"{self.get_color(away_color)}{away_team:<30}{self.get_color('reset')} "
-                  f"{self.get_color('magenta')}[{status}]{self.get_color('reset')}")
+                  f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}")
             
             # Get all actions
             home_scorers = match.get('home_scorers', [])
@@ -1315,11 +1376,19 @@ class FootballScraper:
             
             print()  # Extra space between matches
     
-    def auto_update_league(self, league_choice: str):
+    def auto_update_league(self, league_choice: str, date_offset: int = 0):
         """Auto-update a specific league every 30 seconds"""
         league_name = self.leagues[league_choice]["name"]
         
-        print(f"{self.get_color('green')}Starting auto-update for {league_name}...{self.get_color('reset')}")
+        # Determine date label
+        if date_offset == -1:
+            date_label = "Yesterday's Results"
+        elif date_offset == 1:
+            date_label = "Tomorrow's Fixtures"
+        else:
+            date_label = "Today's Matches"
+        
+        print(f"{self.get_color('green')}Starting auto-update for {league_name} ({date_label})...{self.get_color('reset')}")
         print(f"{self.get_color('cyan')}Updates every 30 seconds. Press Ctrl+C to return to menu.{self.get_color('reset')}")
         
         try:
@@ -1328,10 +1397,11 @@ class FootballScraper:
                 
                 # Display current time
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"{self.get_color('bold')}{self.get_color('bright_blue')}Last Updated: {current_time}{self.get_color('reset')}")
+                target_date = (datetime.now() + timedelta(days=date_offset)).strftime("%Y-%m-%d")
+                print(f"{self.get_color('bold')}{self.get_color('bright_blue')}Last Updated: {current_time} | {date_label} ({target_date}){self.get_color('reset')}")
                 
                 # Fetch and display matches
-                all_matches = self.fetch_matches()
+                all_matches = self.fetch_matches(date_offset)
                 if all_matches:
                     if league_choice == "0":  # All leagues
                         total_matches = 0
@@ -1340,16 +1410,18 @@ class FootballScraper:
                                 self.display_league_matches(league, matches)
                                 total_matches += len(matches)
                         if total_matches == 0:
-                            print(f"{self.get_color('yellow')}No matches found for any league today{self.get_color('reset')}")
+                            date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
+                            print(f"{self.get_color('yellow')}No matches found for any league {date_desc}{self.get_color('reset')}")
                     else:
                         league_matches = all_matches.get(league_name, [])
                         if league_matches:
                             self.display_league_matches(league_name, league_matches)
                         else:
-                            print(f"{self.get_color('yellow')}No matches found for {league_name} today{self.get_color('reset')}")
+                            date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
+                            print(f"{self.get_color('yellow')}No matches found for {league_name} {date_desc}{self.get_color('reset')}")
                 else:
                     print(f"{self.get_color('red')}Failed to fetch match data from BBC Sport{self.get_color('reset')}")
-                    print(f"{self.get_color('yellow')}This could be due to:${self.get_color('reset')}")
+                    print(f"{self.get_color('yellow')}This could be due to:{self.get_color('reset')}")
                     print(f"  • BBC Sport blocking requests")
                     print(f"  • Changes in BBC Sport website structure")
                     print(f"  • Network connectivity issues")
@@ -1361,16 +1433,30 @@ class FootballScraper:
             print(f"\n{self.get_color('yellow')}Returning to menu...{self.get_color('reset')}")
             time.sleep(1)
     
-    def show_single_update(self, league_choice: str):
-        """Show a single update for the selected league"""
+    def show_single_update(self, league_choice: str, date_offset: int = 0):
+        """Show a single update for the selected league
+        
+        Args:
+            league_choice: League selection key
+            date_offset: Number of days from today (0=today, -1=yesterday, 1=tomorrow)
+        """
         league_name = self.leagues[league_choice]["name"]
+        
+        # Determine date label
+        if date_offset == -1:
+            date_label = "Yesterday's Results"
+        elif date_offset == 1:
+            date_label = "Tomorrow's Fixtures"
+        else:
+            date_label = "Today's Matches"
         
         self.clear_screen()
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{self.get_color('bold')}{self.get_color('bright_blue')}Updated: {current_time}{self.get_color('reset')}")
+        target_date = (datetime.now() + timedelta(days=date_offset)).strftime("%Y-%m-%d")
+        print(f"{self.get_color('bold')}{self.get_color('bright_blue')}Updated: {current_time} | {date_label} ({target_date}){self.get_color('reset')}")
         
         # Fetch and display matches
-        all_matches = self.fetch_matches()
+        all_matches = self.fetch_matches(date_offset)
         if all_matches:
             if league_choice == "0":  # All leagues
                 total_matches = 0
@@ -1379,13 +1465,15 @@ class FootballScraper:
                         self.display_league_matches(league, matches)
                         total_matches += len(matches)
                 if total_matches == 0:
-                    print(f"{self.get_color('yellow')}No matches found for any league today{self.get_color('reset')}")
+                    date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
+                    print(f"{self.get_color('yellow')}No matches found for any league {date_desc}{self.get_color('reset')}")
             else:
                 league_matches = all_matches.get(league_name, [])
                 if league_matches:
                     self.display_league_matches(league_name, league_matches)
                 else:
-                    print(f"{self.get_color('yellow')}No matches found for {league_name} today{self.get_color('reset')}")
+                    date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
+                    print(f"{self.get_color('yellow')}No matches found for {league_name} {date_desc}{self.get_color('reset')}")
         else:
             print(f"{self.get_color('red')}Failed to fetch match data from BBC Sport{self.get_color('reset')}")
             print(f"{self.get_color('yellow')}This could be due to:{self.get_color('reset')}")
@@ -1401,16 +1489,55 @@ class FootballScraper:
             choice = input(f"\n{self.get_color('cyan')}Choose an option: {self.get_color('reset')}").lower().strip()
             
             if choice == 'r':
-                self.show_single_update(league_choice)
+                self.show_single_update(league_choice, date_offset)
                 break
             elif choice == 'a':
-                self.auto_update_league(league_choice)
+                self.auto_update_league(league_choice, date_offset)
                 break
             elif choice == 'm':
                 break
             else:
                 print(f"{self.get_color('red')}Invalid choice. Please try again.{self.get_color('reset')}")
     
+    def show_date_menu(self, date_offset: int):
+        """Show league selection menu for a specific date"""
+        if date_offset == -1:
+            date_label = "Yesterday's Results"
+        elif date_offset == 1:
+            date_label = "Tomorrow's Fixtures"
+        else:
+            date_label = "Today's Matches"
+        
+        self.clear_screen()
+        print(f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*60}{self.get_color('reset')}")
+        print(f"{self.get_color('bold')}{self.get_color('bright_blue')} ⚽ {date_label.upper()} ⚽ {self.get_color('reset')}")
+        print(f"{self.get_color('bright_cyan')}{'='*60}{self.get_color('reset')}")
+        print()
+        print(f"{self.get_color('yellow')}Select a league to view:{self.get_color('reset')}")
+        print()
+        
+        for key, league in self.leagues.items():
+            if key == "0":
+                print(f"{self.get_color('bright_green')}[{key}] {league['name']}{self.get_color('reset')}")
+            else:
+                print(f"{self.get_color('white')}[{key}] {league['name']}{self.get_color('reset')}")
+        
+        print()
+        print(f"{self.get_color('red')}[m] Back to Main Menu{self.get_color('reset')}")
+        print()
+        
+        while True:
+            choice = input(f"{self.get_color('cyan')}Enter your choice: {self.get_color('reset')}").strip()
+            
+            if choice.lower() == 'm':
+                break
+            elif choice in self.leagues:
+                self.show_single_update(choice, date_offset)
+                break
+            else:
+                print(f"{self.get_color('red')}Invalid choice. Please try again.{self.get_color('reset')}")
+                time.sleep(1)
+
     def run(self):
         """Main application loop"""
         print(f"{self.get_color('bold')}{self.get_color('bright_green')}Welcome to Football Results Scraper!{self.get_color('reset')}")
@@ -1424,8 +1551,12 @@ class FootballScraper:
             if choice.lower() == 'q':
                 print(f"{self.get_color('yellow')}Thanks for using Football Results Scraper!{self.get_color('reset')}")
                 break
+            elif choice.lower() == 'y':
+                self.show_date_menu(-1)  # Yesterday
+            elif choice.lower() == 't':
+                self.show_date_menu(1)   # Tomorrow
             elif choice in self.leagues:
-                self.show_single_update(choice)
+                self.show_single_update(choice)  # Today
             else:
                 print(f"{self.get_color('red')}Invalid choice. Please try again.{self.get_color('reset')}")
                 time.sleep(2)
