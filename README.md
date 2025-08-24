@@ -2,6 +2,22 @@
 
 🏆 **Real-time football results and league tables from BBC Sport with interactive terminal interface.**
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/demo.cast.svg)](https://asciinema.org/a/demo.cast)
+
+*Note: Upload demo.cast to [asciinema.org](https://asciinema.org) and replace the URL above with your recording ID for the demo to work on GitHub.*
+
+### Preview
+```
+🏆 FOOTBALL RESULTS SCRAPER 🏆
+============================================================
+Select a league to view:
+[1] Premier League  [2] La Liga  [3] Bundesliga
+[4] Serie A  [5] Ligue 1  [6] Primeira Liga
+[0] All Leagues  [q] Quit
+```
+
 ## Features
 
 ✅ **Live Match Results** - Real-time scores, goal scorers, and match status  
