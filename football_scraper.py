@@ -352,7 +352,7 @@ class FootballScraper:
                 elif state == 'HT':
                     status = 'HT'
                 elif state == 'PRE_MATCH':
-                    status = 'vs'  # Upcoming fixture
+                    status = ''  # No status for upcoming fixtures
                 else:
                     status = 'FT'
             
@@ -1145,7 +1145,7 @@ class FootballScraper:
             elif 'ht' in status_text or 'half time' in status_text:
                 status = 'HT'
             elif 'vs' in status_text and ('ft' not in status_text and 'full time' not in status_text):
-                status = 'vs'  # Upcoming fixture
+                status = ''  # No status for upcoming fixture
             elif 'ft' in status_text or 'full time' in status_text:
                 status = 'FT'
             
@@ -1306,24 +1306,33 @@ class FootballScraper:
                 home_color = 'white'
                 away_color = 'white'
             
-            # Color code the status indicator
-            if status == 'FT':
-                status_color = 'white'
-            elif status == 'vs':
-                status_color = 'bright_blue'  # Upcoming fixtures
+            # Determine if game has actually been played
+            game_has_been_played = (home_score > 0 or away_score > 0 or 
+                                  status in ['HT', 'LIVE'] or 
+                                  "'" in status)
+            
+            # Color code the status indicator and format status display
+            if status == 'LIVE' or "'" in status:
+                # Show current minute for live matches
+                status_color = 'bright_red'
+                status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
             elif status == 'HT':
                 status_color = 'yellow'
-            elif status == 'LIVE' or "'" in status:
-                status_color = 'bright_red'  # Live matches
+                status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
+            elif status == 'FT' and game_has_been_played:
+                # Only show FT if game has actually been played
+                status_color = 'white'
+                status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
             else:
-                status_color = 'cyan'
+                # No status for unplayed games
+                status_display = ''
             
             # Display match with better spacing and enhanced status
             print(f"{self.get_color('cyan')}Match {i}:{self.get_color('reset')} {self.get_color('bright_yellow')}{match_time}{self.get_color('reset')}")
             print(f"  {self.get_color(home_color)}{home_team:<30}{self.get_color('reset')} "
                   f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')} "
                   f"{self.get_color(away_color)}{away_team:<30}{self.get_color('reset')} "
-                  f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}")
+                  f"{status_display}")
             
             # Get all actions
             home_scorers = match.get('home_scorers', [])
