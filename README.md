@@ -23,15 +23,17 @@ Clone or download the files:
 
     football_scraper.py - Main scraper application
     requirements.txt - Python dependencies
-    run_scraper.sh - Convenience runner script
+    footyres.sh - Convenience runner script
 
 Install dependencies:
 
 # Option 1: Use the runner script (recommended)
-chmod +x run_scraper.sh
-./run_scraper.sh
+
+chmod +x footyres.sh
+./footyres.sh
 
 # Option 2: Manual installation
+
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -40,14 +42,16 @@ python football_scraper.py
 Usage
 Quick Start
 
-./run_scraper.sh
+./footyres.sh
 
 Manual Execution
 
 # Activate virtual environment
+
 source venv/bin/activate
 
 # Run the scraper
+
 python football_scraper.py
 
 Menu Navigation
@@ -65,7 +69,7 @@ Output Example
 Main Menu
 
 ============================================================
- ⚽ FOOTBALL RESULTS SCRAPER ⚽ 
+⚽ FOOTBALL RESULTS SCRAPER ⚽
 ============================================================
 
 Select a league to view:
@@ -85,28 +89,28 @@ League Results View
 Updated: 2025-08-23 15:30:45
 
 ======================================================================
- PREMIER LEAGUE - 2025-08-23 
+PREMIER LEAGUE - 2025-08-23
 ======================================================================
 
 Match 1: 15:00
-  Manchester City           2-1 Arsenal                   [FT]
-  Goal scorers:
-    ⚽ Haaland 23'
-    ⚽ De Bruyne 67'
-    ⚽ Saka 45'
+Manchester City 2-1 Arsenal [FT]
+Goal scorers:
+⚽ Haaland 23'
+⚽ De Bruyne 67'
+⚽ Saka 45'
 
 Match 2: 17:30
-  Liverpool                 3-2 Chelsea                   [FT]
-  Goal scorers:
-    ⚽ Salah 12'
-    ⚽ Mané 34'
-    ⚽ Firmino 78'
-    ⚽ Sterling 25'
-    ⚽ Mount 89'
+Liverpool 3-2 Chelsea [FT]
+Goal scorers:
+⚽ Salah 12'
+⚽ Mané 34'
+⚽ Firmino 78'
+⚽ Sterling 25'
+⚽ Mount 89'
 
 ==================================================
 Options:
-[r] Refresh  [a] Auto-update (30s)  [m] Main menu
+[r] Refresh [a] Auto-update (30s) [m] Main menu
 
 Color Coding
 
@@ -134,7 +138,7 @@ Notes
 Troubleshooting
 
     Module not found errors: Make sure to activate the virtual environment
-    Permission denied: Run chmod +x run_scraper.sh to make the script executable
+    Permission denied: Run chmod +x footyres.sh to make the script executable
     No data displayed: BBC Sport may be blocking requests; the app will show sample data
     Terminal colors not working: Install colorama: pip install colorama
 
