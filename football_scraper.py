@@ -484,7 +484,9 @@ class FootballScraper:
                 from datetime import datetime
                 try:
                     dt = datetime.fromisoformat(event['startDateTime'].replace('Z', '+00:00'))
-                    match_time = dt.strftime('%H:%M')
+                    # Convert from UTC to system timezone
+                    local_dt = dt.astimezone()
+                    match_time = local_dt.strftime('%H:%M')
                 except:
                     match_time = event['startDateTime'][:5]  # Just time part
             
