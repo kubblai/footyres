@@ -58,6 +58,8 @@ class FootballScraper:
                   "table_url": "french-ligue-one", "alt_urls": ["sport/football/french-ligue-one/table"]},
             "6": {"name": "Primeira Liga", "keywords": ["portuguese-primeira-liga", "primeira-liga"], 
                   "table_url": "portuguese-primeira-liga", "alt_urls": ["sport/football/portuguese-primeira-liga/table"]},
+            "7": {"name": "UEFA Champions League", "keywords": ["champions-league", "uefa-champions-league", "ucl"], 
+                  "table_url": "champions-league", "alt_urls": ["sport/football/champions-league/table"]},
             "0": {"name": "All Leagues", "keywords": [], "table_url": None, "alt_urls": []}
         }
         
@@ -105,7 +107,28 @@ class FootballScraper:
             'freiburg': 'SC Freiburg',
             'bayer-leverkusen': 'Bayer Leverkusen',
             'eintracht-frankfurt': 'Eintracht Frankfurt',
-            'wolfsburg': 'Wolfsburg'
+            'wolfsburg': 'Wolfsburg',
+            
+            # Champions League teams (additional European clubs)
+            'ac-milan': 'AC Milan',
+            'inter-milan': 'Inter Milan',
+            'juventus': 'Juventus',
+            'napoli': 'Napoli',
+            'psg': 'Paris Saint-Germain',
+            'monaco': 'AS Monaco',
+            'ajax': 'Ajax',
+            'psv': 'PSV Eindhoven',
+            'porto': 'FC Porto',
+            'benfica': 'Benfica',
+            'sporting-lisbon': 'Sporting CP',
+            'shakhtar-donetsk': 'Shakhtar Donetsk',
+            'dinamo-zagreb': 'Dinamo Zagreb',
+            'red-star-belgrade': 'Red Star Belgrade',
+            'salzburg': 'RB Salzburg',
+            'celtic': 'Celtic',
+            'club-brugge': 'Club Brugge',
+            'galatasaray': 'Galatasaray',
+            'fenerbahce': 'Fenerbahçe'
         }
         
         self.session = requests.Session()
@@ -369,7 +392,10 @@ class FootballScraper:
             'French Ligue 1': 'Ligue 1',
             # Portuguese leagues
             'Primeira Liga': 'Primeira Liga',
-            'Portuguese Primeira Liga': 'Primeira Liga'
+            'Portuguese Primeira Liga': 'Primeira Liga',
+            # Champions League
+            'UEFA Champions League': 'UEFA Champions League',
+            'Champions League': 'UEFA Champions League'
         }
         return mapping.get(bbc_name)
     
@@ -1342,6 +1368,9 @@ class FootballScraper:
         if table_url_suffix == "premier-league":
             # Premier League uses the base tables URL
             primary_url = self.tables_base_url
+        elif table_url_suffix == "champions-league":
+            # Champions League uses specific format
+            primary_url = "https://www.bbc.co.uk/sport/football/champions-league/table"
         else:
             # Other leagues use the specific format: https://www.bbc.co.uk/sport/football/german-bundesliga/table
             primary_url = f"https://www.bbc.co.uk/sport/football/{table_url_suffix}/table"
@@ -2130,7 +2159,11 @@ class FootballScraper:
     def display_league_matches(self, league_name: str, matches: List[Dict]):
         """Display matches for a specific league"""
         if not matches:
-            print(f"{self.get_color('yellow')}No matches found for {league_name}{self.get_color('reset')}")
+            print(f"\n{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+            print(f"{self.get_color('bold')}{self.get_color('bright_blue')} {league_name.upper()} - {datetime.now().strftime('%Y-%m-%d')} {self.get_color('reset')}")
+            print(f"{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+            print()
+            print(f"{self.get_color('yellow')}There are no games today for {league_name}{self.get_color('reset')}")
             return
         
         print(f"\n{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
@@ -2304,6 +2337,11 @@ class FootballScraper:
             league_choice: League selection key
             date_offset: Number of days from today (0=today, -1=yesterday, 1=tomorrow)
         """
+        # Validate league choice
+        if league_choice not in self.leagues:
+            print(f"{self.get_color('red')}Invalid league choice: {league_choice}{self.get_color('reset')}")
+            return
+            
         league_name = self.leagues[league_choice]["name"]
         
         # Determine date label
@@ -2320,7 +2358,14 @@ class FootballScraper:
         print(f"{self.get_color('bold')}{self.get_color('bright_blue')}Updated: {current_time} | {date_label} ({target_date}){self.get_color('reset')}")
         
         # Fetch and display matches
-        all_matches = self.fetch_matches(date_offset)
+        try:
+            all_matches = self.fetch_matches(date_offset)
+        except Exception as e:
+            print(f"{self.get_color('red')}Error fetching matches: {e}{self.get_color('reset')}")
+            date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
+            print(f"{self.get_color('yellow')}There are no games {date_desc} for {league_name}{self.get_color('reset')}")
+            return
+            
         if all_matches:
             if league_choice == "0":  # All leagues
                 total_matches = 0
@@ -2330,14 +2375,14 @@ class FootballScraper:
                         total_matches += len(matches)
                 if total_matches == 0:
                     date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
-                    print(f"{self.get_color('yellow')}No matches found for any league {date_desc}{self.get_color('reset')}")
+                    print(f"{self.get_color('yellow')}There are no games {date_desc} for any league{self.get_color('reset')}")
             else:
                 league_matches = all_matches.get(league_name, [])
                 if league_matches:
                     self.display_league_matches(league_name, league_matches)
                 else:
                     date_desc = "yesterday" if date_offset == -1 else ("tomorrow" if date_offset == 1 else "today")
-                    print(f"{self.get_color('yellow')}No matches found for {league_name} {date_desc}{self.get_color('reset')}")
+                    print(f"{self.get_color('yellow')}There are no games {date_desc} for {league_name}{self.get_color('reset')}")
         else:
             print(f"{self.get_color('red')}Failed to fetch match data from BBC Sport{self.get_color('reset')}")
             print(f"{self.get_color('yellow')}This could be due to:{self.get_color('reset')}")
