@@ -1410,23 +1410,25 @@ class FootballScraper:
                 response = self.session.get(url, timeout=15)
                 response.raise_for_status()
                 
-                print(f"✅ Success! Status: {response.status_code}, Length: {len(response.content)} bytes")
                 
                 soup = BeautifulSoup(response.content, 'html.parser')
                 league_name = self.leagues[league_choice]["name"]
+                
+                # Special handling for MLS conferences
+                if league_name == "MLS":
+                    # Extract both conferences directly from HTML tables
+                    conferences = self.extract_mls_conferences(soup)
+                    if conferences['Eastern Conference'] or conferences['Western Conference']:
+                        return conferences
+                
                 result = self.parse_league_table(soup, league_name)
                 
                 if result:
-                    print(f"✅ Successfully parsed table data from: {url}")
                     return result
-                else:
-                    print(f"⚠️  No table data found at: {url}")
                     
-            except requests.RequestException as e:
-                print(f"❌ Failed {url}: {e}")
+            except requests.RequestException:
                 continue
         
-        print(f"❌ All URLs failed for {self.leagues[league_choice]['name']}")
         return None
     
     def parse_league_table(self, soup: BeautifulSoup, league_name: str = None) -> Optional[List[Dict]]:
@@ -1545,6 +1547,112 @@ class FootballScraper:
         
         return None
     
+    def extract_mls_conferences(self, soup: BeautifulSoup) -> Dict[str, List[Dict]]:
+        """Extract MLS Eastern and Western conference tables from BBC Sport"""
+        conferences = {'Eastern Conference': [], 'Western Conference': []}
+        
+        try:
+            # Find all table elements - BBC typically has 2 tables: Eastern and Western
+            tables = soup.find_all('table')
+            
+            for table_index, table in enumerate(tables):
+                # Assume first table is Eastern, second is Western (typical BBC layout)
+                if table_index == 0:
+                    conference_name = 'Eastern Conference'
+                elif table_index == 1:
+                    conference_name = 'Western Conference'
+                else:
+                    continue  # Skip additional tables
+                
+                # Extract teams from this table
+                rows = table.find_all('tr')
+                for row_index, row in enumerate(rows[1:], 1):  # Skip header row
+                    cells = row.find_all(['td', 'th'])
+                    
+                    if len(cells) >= 8:  # Minimum cells for a complete table row
+                        try:
+                            # Extract team name (first cell usually contains position+name)
+                            team_cell = cells[0]
+                            team_text = team_cell.get_text().strip()
+                            
+                            # Remove position number from team name (e.g., "1Philadelphia Union" -> "Philadelphia Union")
+                            team_name = ''.join([c for c in team_text if not c.isdigit()]).strip()
+                            
+                            if team_name and len(team_name) > 2:  # Valid team name
+                                # Extract stats from subsequent cells (typical BBC table structure)
+                                played = int(cells[1].get_text().strip()) if len(cells) > 1 else 0
+                                won = int(cells[2].get_text().strip()) if len(cells) > 2 else 0
+                                drawn = int(cells[3].get_text().strip()) if len(cells) > 3 else 0
+                                lost = int(cells[4].get_text().strip()) if len(cells) > 4 else 0
+                                goals_for = int(cells[5].get_text().strip()) if len(cells) > 5 else 0
+                                goals_against = int(cells[6].get_text().strip()) if len(cells) > 6 else 0
+                                goal_diff = int(cells[7].get_text().strip()) if len(cells) > 7 else goals_for - goals_against
+                                points = int(cells[8].get_text().strip()) if len(cells) > 8 else won * 3 + drawn
+                                
+                                team_data = {
+                                    'team': team_name,
+                                    'played': played,
+                                    'won': won,
+                                    'drawn': drawn,
+                                    'lost': lost,
+                                    'goals_for': goals_for,
+                                    'goals_against': goals_against,
+                                    'goal_difference': goal_diff,
+                                    'points': points,
+                                    'position': row_index
+                                }
+                                
+                                conferences[conference_name].append(team_data)
+                                
+                        except (ValueError, IndexError, AttributeError):
+                            continue
+            
+        except Exception:
+            pass
+            
+        return conferences
+
+    def split_mls_into_conferences(self, teams_data: List[Dict]) -> Dict[str, List[Dict]]:
+        """Split MLS teams into Eastern and Western conferences"""
+        conferences = {'Eastern Conference': [], 'Western Conference': []}
+        
+        # Known Eastern Conference teams (based on geography and current MLS structure)
+        eastern_teams = {
+            'atlanta united', 'charlotte', 'chicago fire', 'cincinnati', 'columbus crew',
+            'dc united', 'inter miami', 'montreal', 'montréal', 'new england', 'new york city',
+            'new york rb', 'new york red bulls', 'orlando city', 'philadelphia union', 'toronto',
+            'nashville sc'  # Nashville moved to Eastern in recent years
+        }
+        
+        # Known Western Conference teams
+        western_teams = {
+            'austin fc', 'colorado rapids', 'fc dallas', 'houston dynamo', 'la galaxy',
+            'lafc', 'los angeles fc', 'minnesota united', 'portland timbers',
+            'real salt lake', 'san jose earthquakes', 'seattle sounders', 'sporting kc',
+            'st. louis city', 'vancouver whitecaps'
+        }
+        
+        for team_data in teams_data:
+            team_name = team_data.get('team', '').lower()
+            
+            # Check for exact matches or partial matches
+            is_eastern = any(eastern_name in team_name for eastern_name in eastern_teams)
+            is_western = any(western_name in team_name for western_name in western_teams)
+            
+            if is_eastern:
+                conferences['Eastern Conference'].append(team_data)
+            elif is_western:
+                conferences['Western Conference'].append(team_data)
+            else:
+                # For unknown teams, try to balance conferences
+                print(f"🔍 Unknown MLS team: {team_data.get('team', 'Unknown')}")
+                if len(conferences['Eastern Conference']) <= len(conferences['Western Conference']):
+                    conferences['Eastern Conference'].append(team_data)
+                else:
+                    conferences['Western Conference'].append(team_data)
+        
+        return conferences
+
     def process_json_table_data(self, table_data: Dict, league_name: str = None) -> List[Dict]:
         """Process JSON table data into standardized format"""
         processed_table = []
@@ -1575,7 +1683,6 @@ class FootballScraper:
         if not entries and isinstance(table_data, list):
             entries = table_data
         
-        print(f"Processing {len(entries)} table entries...")
         
         for i, entry in enumerate(entries):
             if not isinstance(entry, dict):
@@ -1963,53 +2070,105 @@ class FootballScraper:
             return
         
         self.clear_screen()
-        print(f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*80}{self.get_color('reset')}")
-        print(f"{self.get_color('bold')}{self.get_color('bright_blue')} {league_name.upper()} - LEAGUE TABLE {self.get_color('reset')}")
-        print(f"{self.get_color('bright_cyan')}{'='*80}{self.get_color('reset')}")
-        print()
         
-        # Table header
-        print(f"{self.get_color('bold')}{self.get_color('white')}")
-        print(f"{'Pos':<4} {'Team':<25} {'P':<3} {'W':<3} {'D':<3} {'L':<3} {'GF':<4} {'GA':<4} {'GD':<4} {'Pts':<4} {'Form':<12}")
-        print(f"{self.get_color('reset')}{self.get_color('cyan')}{'─' * 92}{self.get_color('reset')}")
-        
-        # Table rows
-        for team in table_data:
-            pos = team.get('position', 0)
-            name = team.get('team', 'Unknown')[:24]  # Truncate long names
-            played = team.get('played', 0)
-            won = team.get('won', 0)
-            drawn = team.get('drawn', 0)
-            lost = team.get('lost', 0)
-            gf = team.get('goals_for', 0)
-            ga = team.get('goals_against', 0)
-            gd = team.get('goal_difference', 0)
-            pts = team.get('points', 0)
+        # Special handling for MLS conferences
+        if league_name == "MLS" and isinstance(table_data, dict) and ('Eastern Conference' in table_data or 'Western Conference' in table_data):
+            print(f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*95}{self.get_color('reset')}")
+            print(f"{self.get_color('bold')}{self.get_color('bright_blue')} MLS - CONFERENCE STANDINGS {self.get_color('reset')}")
+            print(f"{self.get_color('bright_cyan')}{'='*95}{self.get_color('reset')}")
             
-            # Generate form indicators (simulate recent form)
-            form = self.generate_team_form(team, played)
+            # Display both conferences
+            for conference_name in ['Eastern Conference', 'Western Conference']:
+                if conference_name in table_data and table_data[conference_name]:
+                    print(f"\n{self.get_color('bold')}{self.get_color('bright_yellow')}🏆 {conference_name.upper()}{self.get_color('reset')}")
+                    print(f"{self.get_color('cyan')}{'─' * 95}{self.get_color('reset')}")
+                    
+                    # Table header
+                    print(f"{self.get_color('bold')}{self.get_color('white')}")
+                    print(f"{'Pos':<4} {'Team':<30} {'P':<3} {'W':<3} {'D':<3} {'L':<3} {'GF':<4} {'GA':<4} {'GD':<4} {'Pts':<4}")
+                    print(f"{self.get_color('reset')}{self.get_color('cyan')}{'─' * 70}{self.get_color('reset')}")
+                    
+                    # Sort teams by points, then goal difference
+                    conference_teams = sorted(table_data[conference_name], 
+                                            key=lambda x: (-x.get('points', 0), -x.get('goal_difference', 0)))
+                    
+                    for i, team in enumerate(conference_teams, 1):
+                        pos = i
+                        name = team.get('team', 'Unknown')[:29]  # Truncate long names
+                        played = team.get('played', 0)
+                        won = team.get('won', 0)
+                        drawn = team.get('drawn', 0)
+                        lost = team.get('lost', 0)
+                        gf = team.get('goals_for', 0)
+                        ga = team.get('goals_against', 0)
+                        gd = team.get('goal_difference', 0)
+                        pts = team.get('points', 0)
+                        
+                        # Position colors (playoff positions in green)
+                        if pos <= 7:  # MLS playoff positions
+                            pos_color = 'bright_green'
+                        elif pos <= 9:  # Play-in positions  
+                            pos_color = 'yellow'
+                        else:
+                            pos_color = 'white'
+                        
+                        print(f"{self.get_color(pos_color)}{pos:<4}{self.get_color('reset')} "
+                              f"{name:<30} {played:<3} {won:<3} {drawn:<3} {lost:<3} "
+                              f"{gf:<4} {ga:<4} {gd:+4} {pts:<4}")
             
-            # Color coding for positions
-            if pos <= 4:
-                pos_color = 'bright_green'  # Champions League
-            elif pos <= 6:
-                pos_color = 'green'  # Europa League
-            elif pos >= len(table_data) - 2:
-                pos_color = 'red'  # Relegation
-            else:
-                pos_color = 'white'
+            print(f"\n{self.get_color('bright_green')}🟢 Playoff positions (1-7){self.get_color('reset')}")
+            print(f"{self.get_color('yellow')}🟡 Play-in positions (8-9){self.get_color('reset')}")
             
-            # Goal difference formatting
-            gd_str = f"+{gd}" if gd > 0 else str(gd)
-            gd_color = 'green' if gd > 0 else ('red' if gd < 0 else 'white')
+        else:
+            # Regular league table display
+            print(f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*80}{self.get_color('reset')}")
+            print(f"{self.get_color('bold')}{self.get_color('bright_blue')} {league_name.upper()} - LEAGUE TABLE {self.get_color('reset')}")
+            print(f"{self.get_color('bright_cyan')}{'='*80}{self.get_color('reset')}")
+            print()
             
-            print(f"{self.get_color(pos_color)}{pos:<4}{self.get_color('reset')} "
-                  f"{self.get_color('white')}{name:<25}{self.get_color('reset')} "
-                  f"{played:<3} {won:<3} {drawn:<3} {lost:<3} "
-                  f"{gf:<4} {ga:<4} "
-                  f"{self.get_color(gd_color)}{gd_str:<4}{self.get_color('reset')} "
-                  f"{self.get_color('bold')}{pts:<4}{self.get_color('reset')} "
-                  f"{form}")
+            # Table header
+            print(f"{self.get_color('bold')}{self.get_color('white')}")
+            print(f"{'Pos':<4} {'Team':<25} {'P':<3} {'W':<3} {'D':<3} {'L':<3} {'GF':<4} {'GA':<4} {'GD':<4} {'Pts':<4} {'Form':<12}")
+            print(f"{self.get_color('reset')}{self.get_color('cyan')}{'─' * 92}{self.get_color('reset')}")
+            
+            # Table rows - handle both list and dict formats
+            teams_to_display = table_data if isinstance(table_data, list) else []
+            for team in teams_to_display:
+                pos = team.get('position', 0)
+                name = team.get('team', 'Unknown')[:24]  # Truncate long names
+                played = team.get('played', 0)
+                won = team.get('won', 0)
+                drawn = team.get('drawn', 0)
+                lost = team.get('lost', 0)
+                gf = team.get('goals_for', 0)
+                ga = team.get('goals_against', 0)
+                gd = team.get('goal_difference', 0)
+                pts = team.get('points', 0)
+                
+                # Generate form indicators (simulate recent form)
+                form = self.generate_team_form(team, played)
+                
+                # Color coding for positions
+                if pos <= 4:
+                    pos_color = 'bright_green'  # Champions League
+                elif pos <= 6:
+                    pos_color = 'green'  # Europa League
+                elif pos >= len(teams_to_display) - 2:
+                    pos_color = 'red'  # Relegation
+                else:
+                    pos_color = 'white'
+            
+                # Goal difference formatting
+                gd_str = f"+{gd}" if gd > 0 else str(gd)
+                gd_color = 'green' if gd > 0 else ('red' if gd < 0 else 'white')
+                
+                print(f"{self.get_color(pos_color)}{pos:<4}{self.get_color('reset')} "
+                      f"{self.get_color('white')}{name:<25}{self.get_color('reset')} "
+                      f"{played:<3} {won:<3} {drawn:<3} {lost:<3} "
+                      f"{gf:<4} {ga:<4} "
+                      f"{self.get_color(gd_color)}{gd_str:<4}{self.get_color('reset')} "
+                      f"{self.get_color('bold')}{pts:<4}{self.get_color('reset')} "
+                      f"{form}")
         
         print(f"\n{self.get_color('bright_cyan')}{'='*50}{self.get_color('reset')}")
         print(f"{self.get_color('yellow')}Press Enter to return to matches...{self.get_color('reset')}")
@@ -2043,7 +2202,6 @@ class FootballScraper:
             print("❌ Table has insufficient rows")
             return None
             
-        print(f"🔍 Found HTML table with {len(rows)} rows (including header)")
         
         teams = []
         for i, row in enumerate(rows[1:], 1):  # Skip header row
@@ -2091,7 +2249,6 @@ class FootballScraper:
                 print(f"⚠️ Error parsing row {i}: {e}")
                 continue
                 
-        print(f"🏆 Successfully extracted {len(teams)} teams with real statistics")
         return teams if teams else None
     
     def extract_teams_from_css_fallback(self, soup: BeautifulSoup) -> Optional[List[Dict]]:
