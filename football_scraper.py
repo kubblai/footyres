@@ -8,13 +8,14 @@ Interactive menu for selecting leagues and viewing options
 import requests
 from bs4 import BeautifulSoup
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Optional
 import sys
 import os
 import json
-from datetime import datetime, timedelta
+import random
+import argparse
 
 try:
     from colorama import init, Fore, Back, Style
@@ -60,6 +61,8 @@ class FootballScraper:
                   "table_url": "portuguese-primeira-liga", "alt_urls": ["sport/football/portuguese-primeira-liga/table"]},
             "7": {"name": "UEFA Champions League", "keywords": ["champions-league", "uefa-champions-league", "ucl"], 
                   "table_url": "champions-league", "alt_urls": ["sport/football/champions-league/table"]},
+            "8": {"name": "MLS", "keywords": ["us-major-league", "mls", "major-league-soccer"], 
+                  "table_url": "us-major-league", "alt_urls": ["sport/football/us-major-league/table"]},
             "0": {"name": "All Leagues", "keywords": [], "table_url": None, "alt_urls": []}
         }
         
@@ -128,7 +131,19 @@ class FootballScraper:
             'celtic': 'Celtic',
             'club-brugge': 'Club Brugge',
             'galatasaray': 'Galatasaray',
-            'fenerbahce': 'Fenerbahçe'
+            'fenerbahce': 'Fenerbahçe',
+            
+            # MLS teams (will be extracted from live table)
+            'la-galaxy': 'LA Galaxy',
+            'lafc': 'LAFC',
+            'inter-miami': 'Inter Miami CF',
+            'atlanta-united': 'Atlanta United FC',
+            'seattle-sounders': 'Seattle Sounders FC',
+            'portland-timbers': 'Portland Timbers',
+            'new-york-city': 'New York City FC',
+            'new-york-red-bulls': 'New York Red Bulls',
+            'toronto-fc': 'Toronto FC',
+            'vancouver-whitecaps': 'Vancouver Whitecaps FC'
         }
         
         self.session = requests.Session()
@@ -395,7 +410,11 @@ class FootballScraper:
             'Portuguese Primeira Liga': 'Primeira Liga',
             # Champions League
             'UEFA Champions League': 'UEFA Champions League',
-            'Champions League': 'UEFA Champions League'
+            'Champions League': 'UEFA Champions League',
+            # MLS
+            'MLS': 'MLS',
+            'Major League Soccer': 'MLS',
+            'US Major League Soccer': 'MLS'
         }
         return mapping.get(bbc_name)
     
@@ -1371,6 +1390,9 @@ class FootballScraper:
         elif table_url_suffix == "champions-league":
             # Champions League uses specific format
             primary_url = "https://www.bbc.co.uk/sport/football/champions-league/table"
+        elif table_url_suffix == "us-major-league":
+            # MLS uses specific format
+            primary_url = "https://www.bbc.co.uk/sport/football/us-major-league/table"
         else:
             # Other leagues use the specific format: https://www.bbc.co.uk/sport/football/german-bundesliga/table
             primary_url = f"https://www.bbc.co.uk/sport/football/{table_url_suffix}/table"
@@ -2487,9 +2509,66 @@ class FootballScraper:
                 time.sleep(2)
 
 def main():
+    parser = argparse.ArgumentParser(
+        description='Football Results Scraper - Live scores from BBC Sport',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+League Flags:
+  --pl, --premier      Premier League
+  --la, --laliga       La Liga  
+  --bu, --bundesliga   Bundesliga
+  --sa, --seriea       Serie A
+  --l1, --ligue1       Ligue 1
+  --pr, --primeira     Primeira Liga
+  --cl, --champions    UEFA Champions League
+  --mls, --majorleague MLS (Major League Soccer)
+  
+Date Options:
+  --yesterday, -y      Yesterday's results
+  --tomorrow, -t       Tomorrow's fixtures
+  
+Examples:
+  python football_scraper.py --cl           # Champions League today
+  python football_scraper.py --pl -y        # Premier League yesterday
+  python football_scraper.py --mls -t       # MLS tomorrow
+        ''')
+    
+    # League flags
+    parser.add_argument('--pl', '--premier', action='store_const', const='1', dest='league', help='Premier League')
+    parser.add_argument('--la', '--laliga', action='store_const', const='2', dest='league', help='La Liga')
+    parser.add_argument('--bu', '--bundesliga', action='store_const', const='3', dest='league', help='Bundesliga')
+    parser.add_argument('--sa', '--seriea', action='store_const', const='4', dest='league', help='Serie A')
+    parser.add_argument('--l1', '--ligue1', action='store_const', const='5', dest='league', help='Ligue 1')
+    parser.add_argument('--pr', '--primeira', action='store_const', const='6', dest='league', help='Primeira Liga')
+    parser.add_argument('--cl', '--champions', action='store_const', const='7', dest='league', help='UEFA Champions League')
+    parser.add_argument('--mls', '--majorleague', action='store_const', const='8', dest='league', help='MLS (Major League Soccer)')
+    parser.add_argument('--all', action='store_const', const='0', dest='league', help='All Leagues')
+    
+    # Date options
+    parser.add_argument('-y', '--yesterday', action='store_const', const=-1, dest='date_offset', help='Yesterday\'s results')
+    parser.add_argument('-t', '--tomorrow', action='store_const', const=1, dest='date_offset', help='Tomorrow\'s fixtures')
+    
+    args = parser.parse_args()
+    
     try:
         scraper = FootballScraper()
-        scraper.run()
+        
+        # If league flag is provided, go directly to that league
+        if args.league:
+            date_offset = args.date_offset or 0
+            scraper.show_single_update(args.league, date_offset)
+            
+            # After showing results, ask if user wants to continue to menu
+            try:
+                choice = input(f"\n{scraper.get_color('cyan')}Press [m] for main menu or [Enter] to exit: {scraper.get_color('reset')}").lower().strip()
+                if choice == 'm':
+                    scraper.run()
+            except (EOFError, KeyboardInterrupt):
+                pass
+        else:
+            # No flags provided, run normal menu
+            scraper.run()
+            
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW if COLORS_AVAILABLE else ''}Application terminated by user{Style.RESET_ALL if COLORS_AVAILABLE else ''}")
     except Exception as e:

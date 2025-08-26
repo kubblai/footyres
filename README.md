@@ -15,6 +15,7 @@
 Select a league to view:
 [1] Premier League  [2] La Liga  [3] Bundesliga
 [4] Serie A  [5] Ligue 1  [6] Primeira Liga
+[7] UEFA Champions League  [8] MLS
 [0] All Leagues  [q] Quit
 ```
 
@@ -22,7 +23,8 @@ Select a league to view:
 
 ✅ **Live Match Results** - Real-time scores, goal scorers, and match status  
 ✅ **League Tables** - Current standings with real BBC Sport statistics  
-✅ **6 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga  
+✅ **8 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS  
+✅ **Command-Line Flags** - Direct league access with `--pl`, `--cl`, `--mls`, etc.  
 ✅ **Form Indicators** - W/D/L boxes showing recent team performance  
 ✅ **HT/Live Markers** - Half-time and live match status indicators  
 ✅ **Auto-Update** - Refreshes every 30 seconds  
@@ -33,7 +35,9 @@ Select a league to view:
 ```bash
 # Option 1: Use runner script (recommended)
 chmod +x footyres.sh
-./footyres.sh
+./footyres.sh                    # Interactive menu
+./footyres.sh --cl               # Direct Champions League access
+./footyres.sh --help             # Show all CLI options
 
 # Option 2: Manual installation
 python3 -m venv venv
@@ -44,8 +48,71 @@ python football_scraper.py
 
 ## Usage
 
+### Command-Line Flags (New!)
+
+You can now jump directly into any league using command-line flags:
+
+#### League Flags
+```bash
+python football_scraper.py --cl          # UEFA Champions League
+python football_scraper.py --pl          # Premier League  
+python football_scraper.py --la          # La Liga
+python football_scraper.py --bu          # Bundesliga
+python football_scraper.py --sa          # Serie A
+python football_scraper.py --l1          # Ligue 1
+python football_scraper.py --pr          # Primeira Liga
+python football_scraper.py --mls         # MLS (Major League Soccer)
+python football_scraper.py --all         # All Leagues
+```
+
+#### Date Options
+```bash
+python football_scraper.py --cl -y       # Champions League yesterday
+python football_scraper.py --pl -t       # Premier League tomorrow
+```
+
+#### Alternative Flag Names
+```bash
+python football_scraper.py --champions   # Same as --cl
+python football_scraper.py --premier     # Same as --pl
+python football_scraper.py --laliga      # Same as --la
+python football_scraper.py --bundesliga  # Same as --bu
+python football_scraper.py --seriea      # Same as --sa
+python football_scraper.py --ligue1      # Same as --l1
+python football_scraper.py --primeira    # Same as --pr
+python football_scraper.py --majorleague # Same as --mls
+```
+
+#### Return to Menu
+After viewing league results with flags, you can:
+- Press `m` to go to the main menu
+- Press `Enter` to exit
+- Use the normal navigation options (`r` refresh, `t` table, etc.)
+
+#### Examples
+```bash
+# Using runner script (recommended)
+./footyres.sh --cl               # Champions League today
+./footyres.sh --pl -y            # Premier League yesterday
+./footyres.sh --mls              # MLS standings and matches
+./footyres.sh --help             # Show help
+
+# Using Python directly
+python football_scraper.py --cl
+python football_scraper.py --pl --yesterday
+python football_scraper.py --mls
+python football_scraper.py --help
+```
+
+### Interactive Menu (Traditional)
+
+Run without any flags for the traditional interactive menu:
+```bash
+python football_scraper.py
+```
+
 **Main Menu:**
-- `[1-6]` - Select individual league
+- `[1-8]` - Individual leagues (including MLS as [8])
 - `[0]` - View all leagues
 - `[y]` - Yesterday's results  
 - `[t]` - Tomorrow's fixtures
@@ -75,6 +142,7 @@ Match 1: 15:00
 - `requests` - BBC Sport API calls
 - `beautifulsoup4` - HTML parsing  
 - `colorama` - Terminal colors
+- `argparse` - Command-line argument parsing (built-in)
 
 ## Notes
 
