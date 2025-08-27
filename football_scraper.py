@@ -430,15 +430,75 @@ class FootballScraper:
             home_score = int(home.get('score', 0))
             away_score = int(away.get('score', 0))
             
+            # Extract aggregate scores for multi-leg matches
+            home_agg = None
+            away_agg = None
+            is_multi_leg = False
+            
+            # Check if this is a multi-leg match
+            if 'multiLeg' in event:
+                is_multi_leg = True
+                # Try to get aggregate from runningScores first
+                home_running_scores = home.get('runningScores', {})
+                away_running_scores = away.get('runningScores', {})
+                
+                if 'aggregate' in home_running_scores:
+                    home_agg = int(home_running_scores['aggregate'])
+                if 'aggregate' in away_running_scores:
+                    away_agg = int(away_running_scores['aggregate'])
+                
+                # Fallback: try participants array
+                if home_agg is None or away_agg is None:
+                    participants = event.get('participants', [])
+                    for participant in participants:
+                        if participant.get('alignment') == 'home' and 'aggregateScore' in participant:
+                            home_agg = int(participant['aggregateScore'])
+                        elif participant.get('alignment') == 'away' and 'aggregateScore' in participant:
+                            away_agg = int(participant['aggregateScore'])
+            
             # Extract status with enhanced indicators
             status = 'FT'  # Default
+            
+            # Get match status and period label from BBC API
+            match_status = event.get('status', 'PostEvent')
+            period_label = event.get('periodLabel', {}).get('value', 'FT')
+            status_comment = event.get('statusComment', {}).get('value', 'FT')
+            
+            # Determine the appropriate status to display
+            if match_status == 'MidEvent':
+                # Live match - use the period label which contains the minute or HT
+                if "'" in period_label:
+                    status = period_label  # This will be like "45'", "67'", "90+2'"
+                elif period_label == 'HT':
+                    status = 'HT'
+                elif period_label == 'ET':
+                    status = 'ET'  # Extra time
+                else:
+                    # Fallback to status comment if period label is unclear
+                    if "'" in status_comment:
+                        status = status_comment
+                    elif status_comment == 'HT':
+                        status = 'HT'
+                    else:
+                        status = 'LIVE'
+            elif match_status == 'PreEvent':
+                status = ''  # No status for upcoming fixtures
+            elif match_status == 'PostEvent':
+                if period_label == 'FT':
+                    status = 'FT'
+                elif period_label == 'PENS':
+                    status = 'PENS'  # Decided on penalties
+                elif 'Postponed' in period_label:
+                    status = 'POSTPONED'
+                else:
+                    status = 'FT'
+            
+            # Legacy eventProgress support (in case some sources still use it)
             if 'eventProgress' in event:
                 progress = event['eventProgress']
                 state = progress.get('state', 'FT')
                 
-                # Check for live match status
                 if state == 'LIVE':
-                    # Extract current minute if available
                     current_minute = progress.get('period', {}).get('current', {}).get('minute', '')
                     added_time = progress.get('period', {}).get('current', {}).get('addedTime', '')
                     
@@ -451,10 +511,6 @@ class FootballScraper:
                         status = 'LIVE'
                 elif state == 'HT':
                     status = 'HT'
-                elif state == 'PRE_MATCH':
-                    status = ''  # No status for upcoming fixtures
-                else:
-                    status = 'FT'
             
             # Extract scorers and cards from actions, separated by team
             home_scorers = []
@@ -547,7 +603,10 @@ class FootballScraper:
                 'away_scorers': away_scorers,
                 'home_cards': home_cards,
                 'away_cards': away_cards,
-                'time': match_time
+                'time': match_time,
+                'is_multi_leg': is_multi_leg,
+                'home_agg': home_agg,
+                'away_agg': away_agg
             }
             
             # Removed debug output - only show results in final display
@@ -2358,6 +2417,11 @@ class FootballScraper:
             status = match.get('status', 'Unknown')
             match_time = match.get('time', '')
             
+            # Get aggregate scores for multi-leg matches
+            is_multi_leg = match.get('is_multi_leg', False)
+            home_agg = match.get('home_agg')
+            away_agg = match.get('away_agg')
+            
             # Color code based on result
             try:
                 if home_score > away_score:
@@ -2379,10 +2443,14 @@ class FootballScraper:
                                   "'" in status)
             
             # Color code the status indicator and format status display
-            if status == 'LIVE' or "'" in status:
-                # Show current minute for live matches
+            if status == 'LIVE':
+                # Show LIVE without minute
                 status_color = 'bright_red'
                 status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
+            elif "'" in status:
+                # Show current minute for live matches (without brackets)
+                status_color = 'bright_red'
+                status_display = f"{self.get_color(status_color)}{status}{self.get_color('reset')}"
             elif status == 'HT':
                 status_color = 'yellow'
                 status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
@@ -2394,10 +2462,16 @@ class FootballScraper:
                 # No status for unplayed games
                 status_display = ''
             
+            # Format score display with aggregate if available
+            if is_multi_leg and home_agg is not None and away_agg is not None:
+                score_display = f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')} {self.get_color('dim')}(Agg {home_agg}-{away_agg}){self.get_color('reset')}"
+            else:
+                score_display = f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}"
+
             # Display match with better spacing and enhanced status
             print(f"{self.get_color('cyan')}Match {i}:{self.get_color('reset')} {self.get_color('bright_yellow')}{match_time}{self.get_color('reset')}")
             print(f"  {self.get_color(home_color)}{home_team:<30}{self.get_color('reset')} "
-                  f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')} "
+                  f"{score_display} "
                   f"{self.get_color(away_color)}{away_team:<30}{self.get_color('reset')} "
                   f"{status_display}")
             
