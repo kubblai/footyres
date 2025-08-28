@@ -305,8 +305,11 @@ class FootballScraper:
             
             # Parse real matches from BBC Sport  
             parsed_matches = self.parse_bbc_matches(soup)
-            if parsed_matches:
+            if parsed_matches is not None:
                 return parsed_matches
+            
+            # If parsing failed, return None
+            return None
                 
         except requests.RequestException as e:
             return None
@@ -315,7 +318,7 @@ class FootballScraper:
         """Parse actual BBC Sport data from JSON embedded in page"""
         # Try to extract from embedded JSON data
         json_matches = self.extract_json_matches(soup)
-        if json_matches:
+        if json_matches is not None:
             return json_matches
         
         # Fallback to HTML parsing if JSON fails
@@ -329,7 +332,7 @@ class FootballScraper:
             for script in scripts:
                 if script.string and '__INITIAL_DATA__' in script.string:
                     # Extract JSON data - handle escaped quotes properly
-                    match = re.search(r'window\.__INITIAL_DATA__=\"(.*)\"', script.string)
+                    match = re.search(r'window\.__INITIAL_DATA__="(.*?)"(?:\s*;\s*$|\s*;|\s*$)', script.string, re.DOTALL)
                     if not match:
                         continue
                     
@@ -1515,7 +1518,7 @@ class FootballScraper:
             for script in scripts:
                 if script.string and '__INITIAL_DATA__' in script.string:
                     # Extract JSON data - handle escaped quotes properly
-                    match = re.search(r'window\.__INITIAL_DATA__=\"(.*)\"', script.string)
+                    match = re.search(r'window\.__INITIAL_DATA__="(.*?)"(?:\s*;\s*$|\s*;|\s*$)', script.string, re.DOTALL)
                     if not match:
                         continue
                     
@@ -2552,7 +2555,7 @@ class FootballScraper:
                 
                 # Fetch and display matches
                 all_matches = self.fetch_matches(date_offset)
-                if all_matches:
+                if all_matches is not None:
                     if league_choice == "0":  # All leagues
                         total_matches = 0
                         for league, matches in all_matches.items():
@@ -2619,7 +2622,7 @@ class FootballScraper:
             print(f"{self.get_color('yellow')}There are no games {date_desc} for {league_name}{self.get_color('reset')}")
             return
             
-        if all_matches:
+        if all_matches is not None:
             if league_choice == "0":  # All leagues
                 total_matches = 0
                 for league, matches in all_matches.items():
