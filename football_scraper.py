@@ -1497,16 +1497,15 @@ class FootballScraper:
         """Parse league table from BBC Sport HTML"""
         table_data = []
         
-        # Extract team names from CSS content patterns
-        teams_data = self.extract_teams_from_css(soup)
-        if teams_data:
-            return teams_data
-        
-        # Fallback: Try multiple methods to find table data
-        # Method 1: Look for JSON data
+        # Method 1: Look for JSON data first (has form data)
         json_table = self.extract_json_table_data(soup, league_name)
         if json_table:
             return json_table
+        
+        # Fallback: Extract team names from CSS content patterns
+        teams_data = self.extract_teams_from_css(soup)
+        if teams_data:
+            return teams_data
         
         # Method 2: Parse HTML table structure
         return self.parse_html_table(soup)
@@ -1527,15 +1526,7 @@ class FootballScraper:
                     
                     # Navigate to table data - BBC Sport uses various keys
                     data_section = data.get('data', {})
-                    print(f"Available data keys ({len(data_section)}): {list(data_section.keys())[:10]}")  # Limit output
-                    
-                    # Save full JSON to debug file for analysis
-                    try:
-                        with open('/tmp/bbc_table_debug.json', 'w') as f:
-                            json.dump(data, f, indent=2)
-                        print("Full JSON saved to /tmp/bbc_table_debug.json for analysis")
-                    except Exception as debug_error:
-                        print(f"Could not save debug file: {debug_error}")
+                    # Found embedded table data in BBC Sport page
                     
                     # Try various possible keys for table data
                     possible_keys = [
@@ -1549,22 +1540,46 @@ class FootballScraper:
                     ]
                     
                     table_key = None
+                    # Priority handling for football-table structure
                     for key in data_section.keys():
-                        # Check for exact matches or partial matches
-                        if any(possible_key in key.lower() for possible_key in possible_keys):
+                        if 'football-table' in key.lower():
                             table_key = key
+                            print(f"Found priority football-table key: {key[:100]}...")
                             break
-                        # Also check if key contains 'table' or 'standing'
-                        if 'table' in key.lower() or 'standing' in key.lower():
-                            table_key = key
-                            break
+                    
+                    # Fallback to other table keys if no football-table found
+                    if not table_key:
+                        for key in data_section.keys():
+                            # Check for exact matches or partial matches
+                            if any(possible_key in key.lower() for possible_key in possible_keys):
+                                table_key = key
+                                break
+                            # Also check if key contains 'table' or 'standing'
+                            if 'table' in key.lower() or 'standing' in key.lower():
+                                table_key = key
+                                break
                     
                     if table_key:
                         table_data = data_section[table_key]
-                        processed_data = self.process_json_table_data(table_data, league_name)
-                        if processed_data:
-                            print(f"✓ Found table data in JSON key: {table_key}")
-                            return processed_data
+                        # Special handling for BBC Sport football-table structure
+                        if 'football-table' in table_key and isinstance(table_data, dict):
+                            print(f"✓ Processing BBC Sport football-table structure")
+                            # Navigate through the nested structure
+                            table_content = table_data.get('data', {})
+                            tournaments = table_content.get('tournaments', [])
+                            if tournaments and tournaments[0].get('stages') and tournaments[0]['stages'][0].get('rounds'):
+                                participants = tournaments[0]['stages'][0]['rounds'][0].get('participants', [])
+                                if participants:
+                                    print(f"✓ Found {len(participants)} teams with form data")
+                                    processed_data = self.process_json_table_data(participants, league_name)
+                                    if processed_data:
+                                        return processed_data
+                        else:
+                            # Normal processing for other table structures
+                            processed_data = self.process_json_table_data(table_data, league_name)
+                            if processed_data:
+                                print(f"✓ Found table data in JSON key: {table_key}")
+                                return processed_data
                     
                     # If no specific table key found, search through all data sections
                     print("Searching through all data sections for table data...")
@@ -1750,10 +1765,9 @@ class FootballScraper:
             if not isinstance(entry, dict):
                 continue
                 
-            # Debug: show available fields for first few entries
-            if i < 3:
-                print(f"  Entry {i+1} fields: {list(entry.keys())}")
-                print(f"  Entry {i+1} sample values: {dict(list(entry.items())[:5])}")
+            # Debug: show available fields for first few entries (reduced output)
+            if i < 2:
+                print(f"  Entry {i+1}: {entry.get('name', 'Unknown')} - form: {entry.get('formGuide', 'None')}")
                 
             # Extract team name from various possible structures - enhanced search
             team_name = 'Unknown'
@@ -1820,17 +1834,18 @@ class FootballScraper:
                            entry.get('pos') or i + 1),
                 'team': team_name,
                 'played': (entry.get('played') or entry.get('games') or 
-                          entry.get('matches') or entry.get('gamesPlayed') or 0),
+                          entry.get('matches') or entry.get('gamesPlayed') or entry.get('matchesPlayed') or 0),
                 'won': (entry.get('won') or entry.get('wins') or entry.get('w') or 0),
                 'drawn': (entry.get('drawn') or entry.get('draws') or entry.get('d') or 0),
                 'lost': (entry.get('lost') or entry.get('losses') or entry.get('l') or 0),
-                'goals_for': (entry.get('goalsFor') or entry.get('goalsScored') or 
+                'goals_for': (entry.get('goalsFor') or entry.get('goalsScored') or entry.get('goalsScoredFor') or
                              entry.get('gf') or entry.get('for') or 0),
-                'goals_against': (entry.get('goalsAgainst') or entry.get('goalsConceded') or 
+                'goals_against': (entry.get('goalsAgainst') or entry.get('goalsConceded') or entry.get('goalsScoredAgainst') or
                                  entry.get('ga') or entry.get('against') or 0),
                 'goal_difference': (entry.get('goalDifference') or entry.get('gd') or 
                                    entry.get('diff') or 0),
-                'points': (entry.get('points') or entry.get('pts') or entry.get('total') or 0)
+                'points': (entry.get('points') or entry.get('pts') or entry.get('total') or 0),
+                'form': self.extract_form_guide(entry)
             }
             
             # Debug: Show what we extracted
@@ -2354,48 +2369,61 @@ class FootballScraper:
         print(f"🔍 Extracted {len(teams)} teams from BBC Sport CSS (fallback with simulated stats)")
         return teams if teams else None
     
-    def generate_team_form(self, team: Dict, played: int) -> str:
-        """Generate form indicators (W/D/L boxes) for a team based on their stats"""
-        import random
-        
-        won = team.get('won', 0)
-        drawn = team.get('drawn', 0) 
-        lost = team.get('lost', 0)
-        points = team.get('points', 0)
-        
-        # Generate realistic form based on team's performance
-        form_indicators = []
-        total_games = min(5, played)  # Show last 5 games max
-        
-        if total_games == 0:
-            return ""
-        
-        # Calculate win/draw/loss ratios
-        win_ratio = won / max(1, played)
-        draw_ratio = drawn / max(1, played)
-        
-        # Generate form based on performance with some randomness
-        random.seed(hash(team.get('team', 'default')))  # Consistent randomness per team
-        
-        for i in range(total_games):
-            rand = random.random()
-            if rand < win_ratio * 0.8:  # 80% chance to reflect actual win ratio
-                result = 'W'
-                color = 'bright_green'
-                bg_color = '\033[42m'  # Green background
-            elif rand < (win_ratio + draw_ratio) * 0.8:
-                result = 'D' 
-                color = 'yellow'
-                bg_color = '\033[43m'  # Yellow background
-            else:
-                result = 'L'
-                color = 'red' 
-                bg_color = '\033[41m'  # Red background
+    def extract_form_guide(self, entry: Dict) -> Optional[List[str]]:
+        """Extract form guide from BBC Sport JSON entry"""
+        form_guide = entry.get('formGuide')
+        if not form_guide or not isinstance(form_guide, list):
+            return None
             
-            # Create colored box similar to BBC Sport
-            form_indicators.append(f"{bg_color}\033[30m{result}\033[0m")
+        # Extract the 'value' from each form guide entry, filtering out "-" (no result)
+        form_values = []
+        for form_item in form_guide:
+            if isinstance(form_item, dict):
+                value = form_item.get('value', '')
+                if value and value != '-':  # Skip "No Result" entries
+                    form_values.append(value)
+            elif isinstance(form_item, str):
+                if form_item != '-':
+                    form_values.append(form_item)
         
-        return " ".join(form_indicators)
+        return form_values if form_values else None
+    
+    def generate_team_form(self, team: Dict, played: int) -> str:
+        """Generate form indicators (W/D/L boxes) for a team based ONLY on real form data"""
+        form_indicators = []
+        
+        # Only use real form data if available
+        real_form = team.get('form')
+        if real_form:
+            # Handle list format from extract_form_guide (most common)
+            if isinstance(real_form, list):
+                # Handle list format like ["W", "D", "L", "W", "W"]
+                for result in real_form[-5:]:  # Last 5 games max
+                    if str(result).upper() in ['W', 'D', 'L']:
+                        char = str(result).upper()
+                        if char == 'W':
+                            bg_color = '\033[42m'  # Green background
+                        elif char == 'D':
+                            bg_color = '\033[43m'  # Yellow background
+                        else:  # L
+                            bg_color = '\033[41m'  # Red background
+                        form_indicators.append(f"{bg_color}\033[30m{char}\033[0m")
+                        
+            elif isinstance(real_form, str):
+                # Handle string format like "WDLWW" or "W,D,L,W,W"
+                form_chars = real_form.replace(',', '').replace(' ', '').upper()
+                for char in form_chars[-5:]:  # Last 5 games max
+                    if char in ['W', 'D', 'L']:
+                        if char == 'W':
+                            bg_color = '\033[42m'  # Green background
+                        elif char == 'D':
+                            bg_color = '\033[43m'  # Yellow background
+                        else:  # L
+                            bg_color = '\033[41m'  # Red background
+                        form_indicators.append(f"{bg_color}\033[30m{char}\033[0m")
+        
+        # Return form indicators only if we have real data, otherwise empty string
+        return " ".join(form_indicators) if form_indicators else ""
     
     def display_league_matches(self, league_name: str, matches: List[Dict]):
         """Display matches for a specific league"""
