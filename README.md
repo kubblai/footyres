@@ -21,13 +21,14 @@ Select a league to view:
 
 ## Features
 
-✅ **Live Match Results** - Real-time scores, goal scorers, and match status  
-✅ **League Tables** - Current standings with real BBC Sport statistics  
-✅ **8 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS  
-✅ **Command-Line Flags** - Direct league access with `--pl`, `--cl`, `--mls`, etc.  
-✅ **Form Indicators** - W/D/L boxes showing recent team performance  
-✅ **HT/Live Markers** - Half-time and live match status indicators  
-✅ **Auto-Update** - Refreshes every 30 seconds  
+✅ **Live Match Results** - Real-time scores, goal scorers, and match status
+✅ **League Tables** - Current standings with real BBC Sport statistics
+✅ **Stream Search** - Find working stream links for live/upcoming matches across 18+ streaming sites
+✅ **8 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS
+✅ **Command-Line Flags** - Direct league access with `--pl`, `--cl`, `--mls`, etc.
+✅ **Form Indicators** - W/D/L boxes showing recent team performance
+✅ **HT/Live Markers** - Half-time and live match status indicators
+✅ **Auto-Update** - Refreshes every 30 seconds
 ✅ **Colorized Display** - Win/loss colors and league table formatting  
 
 ## Quick Start
@@ -114,8 +115,9 @@ python football_scraper.py
 **Main Menu:**
 - `[1-8]` - Individual leagues (including MLS as [8])
 - `[0]` - View all leagues
-- `[y]` - Yesterday's results  
+- `[y]` - Yesterday's results
 - `[t]` - Tomorrow's fixtures
+- `[s]` - Search streams for live/upcoming matches
 - `[q]` - Quit
 
 **League View:**
@@ -123,6 +125,62 @@ python football_scraper.py
 - `[a]` - Auto-update mode
 - `[m]` - Return to menu
 - `[Enter]` - View league table
+
+## Stream Search Feature
+
+The app now includes a powerful stream search feature that finds working stream links for live and upcoming matches (within the next hour).
+
+### How It Works
+
+1. **Access**: Select `[s]` from the main menu or press `[s]` in any league view
+2. **Match Selection**: Choose a league to see numbered list of streamable matches
+3. **Stream Search**: Select a match number (1-N) to search for working streams
+4. **Results**: Get up to 10+ working stream links, prioritized by reliability
+
+### Supported Streaming Sites
+
+The searcher checks 18+ streaming platforms including:
+- **ppv.to** (prioritized with league-specific URLs)
+- watchsports.to, sportyhunter.com, crackstreams.com
+- streameast.io, buffstreams.tv, sportsurge.net
+- And many more...
+
+### Stream Search Examples
+
+```
+🔴 LIVE/UPCOMING MATCHES - La Liga:
+
+1. 🟢 LIVE    Real Madrid vs Barcelona     [45' - HT]
+2. 🔵 19:30   Celta Vigo vs Girona         [Starting soon]
+3. 🔵 21:45   Valencia vs Sevilla          [Upcoming]
+
+Enter match number (1-3) to search for streams...
+```
+
+**Sample Stream Results:**
+```
+🎯 Found 12 working streams for Real Madrid vs Barcelona:
+
+🥇 PRIORITY STREAMS (ppv.to):
+1. https://ppv.to/live/laliga/2025-09-14/rmad-bar
+
+🥈 DIRECT MATCH STREAMS:
+2. https://watchsports.to/live/madrid-barcelona
+3. https://streameast.io/soccer/el-clasico-live
+
+🥉 CATEGORY STREAMS:
+4. https://crackstreams.com/soccer/la-liga
+...
+```
+
+### Stream Search Features
+
+✅ **Live Match Detection** - Automatically finds matches starting within 1 hour or already live
+✅ **League-Specific URLs** - ppv.to links use correct league codes (epl, laliga, bundesliga, etc.)
+✅ **Link Validation** - All URLs are tested before display
+✅ **Priority Sorting** - Direct match links prioritized over category pages
+✅ **Multi-Site Search** - Searches across 18+ streaming platforms simultaneously
+✅ **Team Name Processing** - Handles various team name formats and abbreviations
 
 ## Sample Output
 
