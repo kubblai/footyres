@@ -42,10 +42,649 @@ except ImportError:
     import requests
     from bs4 import BeautifulSoup
 
+class StreamSearcher:
+    def __init__(self):
+        self.streaming_sites = [
+            "https://watchsports.to/",
+            "https://sportyhunter.com/",
+            "https://ppv.to/",
+            "https://sport7.pro/",
+            "https://fstv.online/",
+            "https://www.rbtv77.kaufen/",
+            "https://bintv.fun/",
+            "https://livetv.sx/enx/",
+            "https://www.viprow.nu/",
+            "https://timstreams.xyz/",
+            "https://totalsportek.at/",
+            "https://www.totalsportek.to/",
+            "https://crackstreams.blog/",
+            "https://goalietrend.com/",
+            "https://720pstream.nu/",
+            "https://en12.sportplus.live/",
+            "https://soccerdoge.com/",
+            "https://app.buffstream.io/"
+        ]
+
+    def validate_link(self, url: str, timeout: int = 5) -> bool:
+        """Check if a streaming link is accessible"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+            # For specific match URLs, be more strict - only accept 200
+            return response.status_code == 200
+        except:
+            try:
+                # Fallback: try GET request if HEAD fails
+                response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+                return response.status_code == 200
+            except:
+                return False
+
+    def validate_base_site(self, url: str, timeout: int = 5) -> bool:
+        """Check if a base streaming site is accessible"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+            # For base sites, accept more status codes
+            return response.status_code in [200, 302, 403]
+        except:
+            try:
+                # Fallback: try GET request if HEAD fails
+                response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+                return response.status_code in [200, 302, 403]
+            except:
+                return False
+
+    def create_team_abbreviations(self, team_name: str) -> List[str]:
+        """Create common abbreviations for a team name"""
+        team_lower = team_name.lower()
+        abbreviations = [team_lower, team_name]  # Include original casing
+
+        # Remove common suffixes
+        for suffix in [' fc', ' afc', ' united', ' city']:
+            if team_lower.endswith(suffix):
+                abbreviations.append(team_lower.replace(suffix, '').strip())
+
+        # Add specific team abbreviations
+        team_abbrevs = {
+            'manchester united': ['man utd', 'man united', 'united', 'manu', 'mufc'],
+            'manchester city': ['man city', 'city', 'manc', 'mcfc'],
+            'liverpool': ['liv', 'lfc', 'pool'],
+            'burnley': ['bur', 'burn', 'bnl'],
+            'arsenal': ['ars', 'afc', 'gunners'],
+            'chelsea': ['che', 'cfc', 'blues'],
+            'tottenham': ['tot', 'spurs', 'thfc'],
+            'real madrid': ['real', 'madrid', 'rmf'],
+            'barcelona': ['barca', 'fcb', 'bar'],
+            'celta vigo': ['celta', 'vigo', 'cel'],
+            'girona': ['gir', 'girona fc'],
+        }
+
+        if team_lower in team_abbrevs:
+            abbreviations.extend(team_abbrevs[team_lower])
+
+        # Add first 3 characters
+        if len(team_lower) >= 3:
+            abbreviations.append(team_lower[:3])
+
+        return list(set(abbreviations))  # Remove duplicates
+
+    def scrape_ppv_special(self, site_url: str, site_name: str, home_team: str, away_team: str, league_name: str = "") -> List[Dict[str, str]]:
+        """Special scraping for ppv.to with correct URL format: /live/epl/date/team-team"""
+        matches_found = []
+
+        try:
+            from datetime import datetime
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+
+            # Create ppv.to team abbreviations (3-letter codes)
+            def get_ppv_team_code(team_name: str) -> str:
+                team_lower = team_name.lower()
+
+                # Known ppv.to team codes
+                team_codes = {
+                    'burnley': 'bur',
+                    'liverpool': 'liv',
+                    'manchester united': 'man',
+                    'manchester city': 'mci',
+                    'arsenal': 'ars',
+                    'chelsea': 'che',
+                    'tottenham': 'tot',
+                    'aston villa': 'avl',
+                    'newcastle': 'new',
+                    'west ham': 'whu',
+                    'crystal palace': 'cry',
+                    'brighton': 'bha',
+                    'bournemouth': 'bou',
+                    'fulham': 'ful',
+                    'wolves': 'wol',
+                    'everton': 'eve',
+                    'brentford': 'bre',
+                    'nottingham forest': 'nfo',
+                    'ipswich': 'ips',
+                    'leicester': 'lei',
+                    'southampton': 'sou',
+                    'real madrid': 'rmf',
+                    'barcelona': 'bar',
+                    'atletico madrid': 'atm',
+                    'celta vigo': 'cel',
+                    'girona': 'gir'
+                }
+
+                if team_lower in team_codes:
+                    return team_codes[team_lower]
+
+                # Fallback: first 3 characters
+                return team_lower[:3].replace(' ', '')
+
+            home_code = get_ppv_team_code(home_team)
+            away_code = get_ppv_team_code(away_team)
+
+            # Get today's date in ppv.to format (YYYY-MM-DD)
+            today = datetime.now()
+            date_str = today.strftime("%Y-%m-%d")
+
+            # Map league names to ppv.to league codes
+            def get_ppv_league_code(league_name: str) -> List[str]:
+                league_lower = league_name.lower()
+
+                if 'premier' in league_lower or 'epl' in league_lower:
+                    return ['epl', 'pl', 'premier-league']
+                elif 'la liga' in league_lower or 'spanish' in league_lower or 'laliga' in league_lower:
+                    return ['laliga', 'la-liga', 'spanish-la-liga']
+                elif 'bundesliga' in league_lower or 'german' in league_lower:
+                    return ['bundesliga', 'german-bundesliga']
+                elif 'serie a' in league_lower or 'italian' in league_lower:
+                    return ['seriea', 'serie-a', 'italian-serie-a']
+                elif 'ligue 1' in league_lower or 'french' in league_lower:
+                    return ['ligue1', 'french-ligue-one']
+                elif 'primeira' in league_lower or 'portuguese' in league_lower:
+                    return ['primeira-liga', 'portuguese-primeira-liga']
+                elif 'champions' in league_lower or 'ucl' in league_lower:
+                    return ['champions-league', 'ucl']
+                elif 'mls' in league_lower:
+                    return ['mls', 'major-league-soccer']
+                else:
+                    # Fallback - try common codes
+                    return ['epl', 'laliga', 'bundesliga', 'seriea', 'football', 'soccer']
+
+            league_codes = get_ppv_league_code(league_name) if league_name else ['epl', 'laliga', 'bundesliga', 'seriea']
+
+            date_formats = [
+                date_str,  # Today
+                datetime.now().strftime("%Y-%m-%d"),  # Today alternative
+            ]
+
+            for league_code in league_codes:
+                for date_format in date_formats:
+                    # Try both team orders
+                    team_combinations = [
+                        f"{home_code}-{away_code}",
+                        f"{away_code}-{home_code}"
+                    ]
+
+                    for team_combo in team_combinations:
+                        test_url = f"{site_url}live/{league_code}/{date_format}/{team_combo}"
+
+                        try:
+                            test_response = requests.head(test_url, headers=headers, timeout=5)
+                            if test_response.status_code == 200:
+                                matches_found.append({
+                                    'site': site_name,
+                                    'url': test_url,
+                                    'match': f"{home_team} vs {away_team}",
+                                    'type': 'scraped',
+                                    'match_text': f"PPV.to live stream: {league_code}/{date_format}/{team_combo}"
+                                })
+                                return matches_found  # Return immediately when found
+
+                        except:
+                            continue
+
+            # Also try to scrape the main page for any match listings
+            try:
+                response = requests.get(site_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(response.content, 'html.parser')
+
+                    # Look for links containing team names or match patterns
+                    all_links = soup.find_all('a', href=True)
+                    for link in all_links:
+                        href = link.get('href', '')
+                        text = link.get_text(strip=True).lower()
+
+                        # Check if this looks like a match link with our teams
+                        contains_teams = any(team.lower()[:3] in href.lower() for team in [home_team, away_team])
+                        contains_live = 'live' in href.lower()
+
+                        if contains_teams and contains_live and '/live/' in href:
+                            full_url = href if href.startswith('http') else f"{site_url.rstrip('/')}{href}"
+                            matches_found.append({
+                                'site': site_name,
+                                'url': full_url,
+                                'match': f"{home_team} vs {away_team}",
+                                'type': 'scraped',
+                                'match_text': f"PPV.to scraped link: {text[:60]}"
+                            })
+                            break
+
+            except:
+                pass
+
+            # Always add ppv.to base site as high priority option
+            if not matches_found:
+                matches_found.append({
+                    'site': site_name,
+                    'url': site_url,
+                    'match': f"{home_team} vs {away_team}",
+                    'type': 'base',
+                    'search_hint': f"PPV.to (Priority site) - Look for {home_team} vs {away_team}"
+                })
+
+        except Exception as e:
+            pass
+
+        return matches_found
+
+    def scrape_site_for_matches(self, site_url: str, site_name: str, home_team: str, away_team: str, league_name: str = "") -> List[Dict[str, str]]:
+        """Universal scraper for streaming sites"""
+        matches_found = []
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+
+            # Special handling for ppv.to - try multiple approaches
+            if site_name == 'ppv.to':
+                matches_found.extend(self.scrape_ppv_special(site_url, site_name, home_team, away_team, league_name))
+                if matches_found:
+                    return matches_found
+
+            response = requests.get(site_url, headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.content, 'html.parser')
+
+                home_abbrevs = self.create_team_abbreviations(home_team)
+                away_abbrevs = self.create_team_abbreviations(away_team)
+
+                # Look for all links
+                all_links = soup.find_all('a', href=True)
+
+                for link in all_links:
+                    href = link.get('href', '')
+                    text = link.get_text(strip=True)
+                    text_lower = text.lower()
+
+                    # Skip empty or very short text
+                    if len(text.strip()) < 3:
+                        continue
+
+                    # Check for team matches in the link text
+                    home_match = any(abbrev.lower() in text_lower for abbrev in home_abbrevs)
+                    away_match = any(abbrev.lower() in text_lower for abbrev in away_abbrevs)
+
+                    # Match if we find both teams, or one team with vs/v/@ AND it's football/soccer related
+                    has_both_teams = home_match and away_match
+                    has_one_team_with_vs = (home_match or away_match) and any(sep in text_lower for sep in ['vs', ' v ', ' @ ', 'versus'])
+                    is_football = any(term in text_lower for term in ['football', 'soccer', 'premier', 'league', 'laliga', 'bundesliga', 'serie'])
+
+                    is_match = (has_both_teams or has_one_team_with_vs) and is_football
+
+                    if is_match and (href.startswith('http') or href.startswith('/') or href.startswith('?')):
+                        # Construct full URL
+                        if href.startswith('/'):
+                            full_url = site_url.rstrip('/') + href
+                        elif href.startswith('?'):
+                            full_url = site_url.rstrip('/') + '/' + href
+                        elif href.startswith('http'):
+                            full_url = href
+                        else:
+                            full_url = site_url.rstrip('/') + '/' + href
+
+                        matches_found.append({
+                            'site': site_name,
+                            'url': full_url,
+                            'match': f"{home_team} vs {away_team}",
+                            'type': 'scraped',
+                            'match_text': text[:100]
+                        })
+
+                        if len(matches_found) >= 5:
+                            break
+
+                # Fallback: look for football/soccer categories if no matches found
+                if len(matches_found) == 0:
+                    for link in all_links[:30]:
+                        href = link.get('href', '')
+                        text = link.get_text(strip=True).lower()
+
+                        if any(term in href.lower() or term in text for term in
+                               ['football', 'soccer', 'premier', 'liga', 'league', 'live', 'stream']):
+
+                            full_url = href
+                            if href.startswith('/'):
+                                full_url = site_url.rstrip('/') + href
+                            elif href.startswith('?'):
+                                full_url = site_url.rstrip('/') + '/' + href
+
+                            matches_found.append({
+                                'site': site_name,
+                                'url': full_url,
+                                'match': f"{home_team} vs {away_team}",
+                                'type': 'category',
+                                'match_text': f"Football section: {link.get_text(strip=True)[:50]}"
+                            })
+
+                            if len(matches_found) >= 2:
+                                break
+
+        except Exception as e:
+            pass  # Silently continue if scraping fails
+
+        return matches_found
+
+    def scrape_multiple_sites(self, home_team: str, away_team: str, league_name: str = "") -> List[Dict[str, str]]:
+        """Scrape multiple streaming sites for matches"""
+        all_matches = []
+
+        # Prioritize ppv.to and sites with good direct link success rates
+        sites_to_scrape = [
+            ('https://ppv.to/', 'ppv.to'),  # Priority site
+            ('https://watchsports.to/', 'watchsports.to'),  # Good direct links
+            ('https://sport7.pro/', 'sport7.pro'),  # Good direct links
+            ('https://sportyhunter.com/', 'sportyhunter.com'),
+            ('https://fstv.online/', 'fstv.online'),
+            ('https://www.viprow.nu/', 'viprow.nu'),
+            ('https://livetv.sx/enx/', 'livetv.sx'),
+            ('https://www.totalsportek.to/', 'totalsportek.to'),
+            ('https://crackstreams.blog/', 'crackstreams.blog'),
+            ('https://720pstream.nu/', '720pstream.nu'),
+            ('https://soccerdoge.com/', 'soccerdoge.com'),
+            ('https://app.buffstream.io/', 'buffstream.io'),
+            ('https://www.rbtv77.kaufen/', 'rbtv77.kaufen'),
+            ('https://bintv.fun/', 'bintv.fun'),
+            ('https://timstreams.xyz/', 'timstreams.xyz'),
+            ('https://totalsportek.at/', 'totalsportek.at'),
+            ('https://goalietrend.com/', 'goalietrend.com'),
+            ('https://en12.sportplus.live/', 'sportplus.live')
+        ]
+
+        for site_url, site_name in sites_to_scrape:
+            try:
+                site_matches = self.scrape_site_for_matches(site_url, site_name, home_team, away_team, league_name)
+                all_matches.extend(site_matches)
+
+                if len(all_matches) >= 10:  # Stop when we have enough results
+                    break
+            except:
+                continue  # Skip failed sites
+
+        return all_matches
+
+    def scrape_watchsports_matches(self, home_team: str, away_team: str) -> List[Dict[str, str]]:
+        """Scrape watchsports.to for actual match listings"""
+        matches_found = []
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get('https://watchsports.to/', headers=headers, timeout=15)
+
+            if response.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.content, 'html.parser')
+
+                # Create team abbreviations for matching
+                def create_abbreviations(team_name):
+                    team_lower = team_name.lower()
+                    abbreviations = [team_lower]
+
+                    # Add common abbreviations
+                    if 'manchester united' in team_lower:
+                        abbreviations.extend(['man united', 'man utd', 'united', 'manu'])
+                    elif 'manchester city' in team_lower:
+                        abbreviations.extend(['man city', 'city', 'manc'])
+                    elif 'liverpool' in team_lower:
+                        abbreviations.extend(['liv', 'lfc'])
+                    elif 'burnley' in team_lower:
+                        abbreviations.extend(['bur', 'burn'])
+                    elif 'arsenal' in team_lower:
+                        abbreviations.extend(['ars', 'afc'])
+                    elif 'chelsea' in team_lower:
+                        abbreviations.extend(['che', 'cfc'])
+                    elif 'tottenham' in team_lower:
+                        abbreviations.extend(['tot', 'spurs'])
+
+                    # Add first 3 characters as abbreviation
+                    if len(team_lower) >= 3:
+                        abbreviations.append(team_lower[:3])
+
+                    return abbreviations
+
+                home_abbrevs = create_abbreviations(home_team)
+                away_abbrevs = create_abbreviations(away_team)
+
+                # Look for links with game IDs (watchsports.to format)
+                all_links = soup.find_all('a', href=True)
+                for link in all_links:
+                    href = link.get('href', '')
+                    text = link.get_text(strip=True).lower()
+
+                    # Check if this is a game link and contains our teams
+                    if 'game=' in href and ('premier' in text or 'league' in text or 'football' in text):
+                        # Check for team name matches (either direction)
+                        home_match = any(abbrev in text for abbrev in home_abbrevs)
+                        away_match = any(abbrev in text for abbrev in away_abbrevs)
+
+                        if home_match and away_match:
+                            # Construct full URL
+                            full_url = f"https://watchsports.to/{href}" if href.startswith('?') else href
+
+                            matches_found.append({
+                                'site': 'watchsports.to',
+                                'url': full_url,
+                                'match': f"{home_team} vs {away_team}",
+                                'type': 'scraped',
+                                'match_text': link.get_text(strip=True)[:100]
+                            })
+
+                            if len(matches_found) >= 2:
+                                break
+
+        except Exception as e:
+            pass  # Silently continue if scraping fails
+
+        return matches_found
+
+    def search_streams_for_match(self, home_team: str, away_team: str, league_name: str = "") -> List[Dict[str, str]]:
+        """Search for streams for a specific match using actual team names from BBC Sport"""
+        valid_streams = []
+
+        # Clean team names for search - handle common team name patterns
+        def clean_team_name(team: str) -> str:
+            # Remove common suffixes and prefixes
+            team = re.sub(r'\bFC\b|\bAFC\b|\bUnited\b|\bCity\b|\bTown\b|\bAlbion\b', '', team, flags=re.IGNORECASE)
+            # Remove special characters and extra spaces
+            team = re.sub(r'[^\w\s]', '', team).strip()
+            # Replace spaces with hyphens and convert to lowercase
+            return '-'.join(team.lower().split())
+
+        home_clean = clean_team_name(home_team)
+        away_clean = clean_team_name(away_team)
+
+        # Also try with full names (less cleaning)
+        home_simple = re.sub(r'[^\w\s]', '', home_team).lower().replace(' ', '-')
+        away_simple = re.sub(r'[^\w\s]', '', away_team).lower().replace(' ', '-')
+
+        # Create multiple search term variations
+        search_terms = []
+
+        # Try with cleaned names
+        if home_clean and away_clean:
+            search_terms.extend([
+                f"{home_clean}-vs-{away_clean}",
+                f"{away_clean}-vs-{home_clean}",
+                f"{home_clean}-{away_clean}",
+                f"{away_clean}-{home_clean}"
+            ])
+
+        # Try with simple cleaned names
+        search_terms.extend([
+            f"{home_simple}-vs-{away_simple}",
+            f"{away_simple}-vs-{home_simple}",
+            f"{home_simple}-{away_simple}",
+            f"{away_simple}-{home_simple}"
+        ])
+
+        # Try common abbreviations for well-known teams
+        team_abbreviations = {
+            'manchester-united': ['man-utd', 'mufc', 'united'],
+            'manchester-city': ['man-city', 'mcfc', 'city'],
+            'liverpool': ['lfc', 'pool'],
+            'arsenal': ['afc', 'gunners'],
+            'chelsea': ['cfc', 'blues'],
+            'tottenham': ['spurs', 'thfc'],
+            'real-madrid': ['madrid', 'real'],
+            'barcelona': ['barca', 'fcb'],
+            'bayern-munich': ['bayern', 'fcb'],
+            'borussia-dortmund': ['dortmund', 'bvb'],
+            'celta-vigo': ['celta', 'vigo'],
+            'girona': ['girona-fc', 'gfc']
+        }
+
+        # Add abbreviation-based search terms
+        home_abbrevs = team_abbreviations.get(home_simple, [home_simple])
+        away_abbrevs = team_abbreviations.get(away_simple, [away_simple])
+
+        for home_abbrev in home_abbrevs[:2]:  # Limit to prevent too many requests
+            for away_abbrev in away_abbrevs[:2]:
+                search_terms.extend([
+                    f"{home_abbrev}-vs-{away_abbrev}",
+                    f"{away_abbrev}-vs-{home_abbrev}"
+                ])
+
+        # Remove duplicates while preserving order
+        search_terms = list(dict.fromkeys(search_terms))
+
+        # Strategy 1: Scrape multiple sites for actual match listings
+        print(f"Scraping streaming sites for {home_team} vs {away_team}...")
+
+        # Use the universal scraper for multiple sites
+        scraped_matches = self.scrape_multiple_sites(home_team, away_team, league_name)
+        valid_streams.extend(scraped_matches)
+
+        # Strategy 2: Try to find specific match URLs (original method as backup)
+        if len(valid_streams) < 3:
+            for site in self.streaming_sites[:6]:  # Test fewer sites to be faster
+                for term in search_terms[:4]:  # Limit search terms per site
+                    # Try multiple URL patterns
+                    url_patterns = [
+                        f"{site}football/{term}",
+                        f"{site}soccer/{term}",
+                        f"{site}{term}",
+                        f"{site}live/{term}",
+                        f"{site}stream/{term}"
+                    ]
+
+                    for pattern in url_patterns:
+                        url = pattern if site.endswith('/') else pattern.replace(site, f"{site}/", 1)
+
+                        if self.validate_link(url):
+                            valid_streams.append({
+                                'site': site.replace('https://', '').replace('http://', '').split('/')[0],
+                                'url': url,
+                                'match': f"{home_team} vs {away_team}",
+                                'type': 'specific'
+                            })
+                            break
+
+                    if len(valid_streams) >= 10:  # Limit to 10 working streams per match
+                        break
+                if len(valid_streams) >= 10:
+                    break
+
+        # Strategy 3: If no specific URLs found, provide working base sites with search suggestions
+        if len(valid_streams) == 0:
+            print("No specific match links found, checking base streaming sites...")
+            working_sites = []
+            for site in self.streaming_sites:
+                if self.validate_base_site(site):
+                    working_sites.append(site)
+                    if len(working_sites) >= 5:  # Limit to 5 working base sites
+                        break
+
+            for site in working_sites:
+                valid_streams.append({
+                    'site': site.replace('https://', '').replace('http://', '').split('/')[0],
+                    'url': site,
+                    'match': f"{home_team} vs {away_team}",
+                    'type': 'base',
+                    'search_hint': f"Manual search: Look for {home_team} vs {away_team}"
+                })
+
+        # Strategy 4: Always include some working base sites as fallback
+        if len(valid_streams) < 10:
+            additional_sites = []
+            for site in self.streaming_sites:
+                site_domain = site.replace('https://', '').replace('http://', '').split('/')[0]
+                # Skip if we already have this site
+                if any(s['site'] == site_domain for s in valid_streams):
+                    continue
+
+                if self.validate_base_site(site):
+                    additional_sites.append({
+                        'site': site_domain,
+                        'url': site,
+                        'match': f"{home_team} vs {away_team}",
+                        'type': 'base',
+                        'search_hint': f"Manual search needed: {home_team} vs {away_team}"
+                    })
+                    if len(valid_streams) + len(additional_sites) >= 10:
+                        break
+
+            valid_streams.extend(additional_sites)
+
+        # Sort results by priority: ppv.to direct links first, then other direct links, then categories
+        return self.prioritize_stream_results(valid_streams)
+
+    def prioritize_stream_results(self, streams: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Sort stream results by priority"""
+        def get_priority(stream):
+            site = stream.get('site', '').lower()
+            stream_type = stream.get('type', '')
+
+            # Priority scoring (lower number = higher priority)
+            if site == 'ppv.to' and stream_type == 'scraped':
+                return 1  # Highest priority: ppv.to direct matches
+            elif site == 'ppv.to':
+                return 2  # Second: ppv.to categories
+            elif stream_type == 'scraped':
+                return 3  # Third: Other direct matches
+            elif stream_type == 'specific':
+                return 4  # Fourth: Constructed direct links
+            elif stream_type == 'category':
+                return 5  # Fifth: Category/section links
+            elif stream_type == 'base':
+                return 6  # Last: Base site links
+            else:
+                return 7  # Unknown types last
+
+        return sorted(streams, key=get_priority)
+
 class FootballScraper:
     def __init__(self):
         self.base_url = "https://www.bbc.co.uk/sport/football/scores-fixtures"
         self.tables_base_url = "https://www.bbc.co.uk/sport/football/tables"
+        self.stream_searcher = StreamSearcher()
         self.leagues = {
             "1": {"name": "Premier League", "keywords": ["premier-league", "english-premier-league", "epl"], 
                   "table_url": "premier-league", "alt_urls": ["football/premier-league/table", "sport/football/premier-league/table"]},
@@ -278,6 +917,7 @@ class FootballScraper:
         print(f"{self.get_color('cyan')}Other Options:{self.get_color('reset')}")
         print(f"{self.get_color('bright_magenta')}[y] Yesterday's Results{self.get_color('reset')}")
         print(f"{self.get_color('bright_blue')}[t] Tomorrow's Fixtures{self.get_color('reset')}")
+        print(f"{self.get_color('bright_yellow')}[s] Search Streams (Live/Upcoming matches){self.get_color('reset')}")
         print()
         print(f"{self.get_color('red')}[q] Quit{self.get_color('reset')}")
         print()
@@ -2556,7 +3196,198 @@ class FootballScraper:
                         print()
             
             print()  # Extra space between matches
-    
+
+    def is_streamable_match(self, match: Dict) -> bool:
+        """Check if a match is streamable (live or starting within 30 minutes)"""
+        status = match.get('status', 'Unknown')
+        match_time = match.get('time', '')
+
+        # Live matches are always streamable
+        if status in ['LIVE', 'HT'] or "'" in status:
+            return True
+
+        # Check if match starts within 30 minutes
+        if match_time and ':' in match_time:
+            try:
+                from datetime import datetime, timedelta
+                current_time = datetime.now()
+                match_hour, match_minute = map(int, match_time.split(':'))
+                match_datetime = current_time.replace(hour=match_hour, minute=match_minute, second=0, microsecond=0)
+
+                # If match time is earlier than current time, assume it's tomorrow
+                if match_datetime < current_time:
+                    match_datetime += timedelta(days=1)
+
+                time_until_match = match_datetime - current_time
+                return time_until_match.total_seconds() <= 3600  # 60 minutes (1 hour) in seconds
+            except (ValueError, AttributeError):
+                pass
+
+        return False
+
+    def display_streamable_matches(self, league_name: str, matches: List[Dict]):
+        """Display only matches that can be streamed with numbering for selection"""
+        streamable_matches = [match for match in matches if self.is_streamable_match(match)]
+
+        if not streamable_matches:
+            print(f"\n{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+            print(f"{self.get_color('bold')}{self.get_color('bright_blue')} {league_name.upper()} - STREAMABLE MATCHES {self.get_color('reset')}")
+            print(f"{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+            print()
+            print(f"{self.get_color('yellow')}No streamable matches found for {league_name} (live or starting within 1 hour){self.get_color('reset')}")
+            return streamable_matches
+
+        print(f"\n{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+        print(f"{self.get_color('bold')}{self.get_color('bright_blue')} {league_name.upper()} - STREAMABLE MATCHES {self.get_color('reset')}")
+        print(f"{self.get_color('bright_cyan')}{'='*70}{self.get_color('reset')}")
+        print()
+
+        # Store matches for stream search
+        self.current_streamable_matches = streamable_matches
+
+        for i, match in enumerate(streamable_matches, 1):
+            home_team = match.get('home_team', 'N/A')
+            away_team = match.get('away_team', 'N/A')
+            home_score = match.get('home_score', 0)
+            away_score = match.get('away_score', 0)
+            status = match.get('status', 'Unknown')
+            match_time = match.get('time', '')
+
+            # Color code the status for streamable matches
+            if status == 'LIVE':
+                status_color = 'bright_red'
+                status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
+            elif "'" in status:
+                status_color = 'bright_red'
+                status_display = f"{self.get_color(status_color)}{status}{self.get_color('reset')}"
+            elif status == 'HT':
+                status_color = 'yellow'
+                status_display = f"{self.get_color(status_color)}[{status}]{self.get_color('reset')}"
+            else:
+                status_display = f"{self.get_color('bright_green')}[UPCOMING]{self.get_color('reset')}"
+
+            score_display = f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}" if home_score or away_score else ""
+
+            print(f"{self.get_color('bright_cyan')}[{i}]{self.get_color('reset')} {self.get_color('bright_yellow')}{match_time}{self.get_color('reset')}")
+            print(f"    {self.get_color('white')}{home_team:<30}{self.get_color('reset')} "
+                  f"{score_display} "
+                  f"{self.get_color('white')}{away_team:<30}{self.get_color('reset')} "
+                  f"{status_display}")
+            print()
+
+        print(f"{self.get_color('bright_magenta')}Enter a number (1-{len(streamable_matches)}) to search for streams, or 'q' to go back:{self.get_color('reset')}")
+        return streamable_matches
+
+    def search_and_display_streams(self, match_number: int, league_name: str = ""):
+        """Search for and display streams for a selected match"""
+        if not hasattr(self, 'current_streamable_matches') or not self.current_streamable_matches:
+            print(f"{self.get_color('red')}No matches available for streaming search.{self.get_color('reset')}")
+            return
+
+        if match_number < 1 or match_number > len(self.current_streamable_matches):
+            print(f"{self.get_color('red')}Invalid match number. Please select a number between 1 and {len(self.current_streamable_matches)}.{self.get_color('reset')}")
+            return
+
+        match = self.current_streamable_matches[match_number - 1]
+        home_team = match.get('home_team', 'N/A')
+        away_team = match.get('away_team', 'N/A')
+
+        print(f"\n{self.get_color('bright_cyan')}Searching for streams for: {home_team} vs {away_team}...{self.get_color('reset')}")
+        print(f"{self.get_color('yellow')}This may take a moment as we validate each link...{self.get_color('reset')}")
+
+        streams = self.stream_searcher.search_streams_for_match(home_team, away_team, league_name)
+
+        if not streams:
+            print(f"{self.get_color('red')}No working streams found for this match.{self.get_color('reset')}")
+            return
+
+        print(f"\n{self.get_color('bright_green')}Found {len(streams)} working stream(s):{self.get_color('reset')}")
+        print(f"{self.get_color('bright_cyan')}{'='*50}{self.get_color('reset')}")
+
+        for i, stream in enumerate(streams, 1):
+            print(f"{self.get_color('bright_yellow')}Stream {i}:{self.get_color('reset')} {self.get_color('bright_blue')}{stream['site']}{self.get_color('reset')}")
+            print(f"  {self.get_color('cyan')}{stream['url']}{self.get_color('reset')}")
+
+            # Show additional info based on stream type
+            if stream.get('type') == 'scraped' and 'match_text' in stream:
+                print(f"  {self.get_color('green')}✓ Found: {stream['match_text']}{self.get_color('reset')}")
+            elif stream.get('type') == 'category' and 'match_text' in stream:
+                print(f"  {self.get_color('yellow')}📁 {stream['match_text']}{self.get_color('reset')}")
+            elif stream.get('type') == 'base' and 'search_hint' in stream:
+                print(f"  {self.get_color('yellow')}💡 {stream['search_hint']}{self.get_color('reset')}")
+            elif stream.get('type') == 'specific':
+                print(f"  {self.get_color('green')}✓ Direct match link{self.get_color('reset')}")
+            print()
+
+    def show_stream_search_menu(self):
+        """Show stream search menu for all leagues"""
+        while True:
+            self.clear_screen()
+            print(f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'='*60}{self.get_color('reset')}")
+            print(f"{self.get_color('bold')}{self.get_color('bright_blue')} 📺 STREAM SEARCH 📺 {self.get_color('reset')}")
+            print(f"{self.get_color('bright_cyan')}{'='*60}{self.get_color('reset')}")
+            print()
+            print(f"{self.get_color('yellow')}Select a league to search for streams:{self.get_color('reset')}")
+            print(f"{self.get_color('dim')}(Shows only live matches or matches starting within 1 hour){self.get_color('reset')}")
+            print()
+
+            for key, league in self.leagues.items():
+                if key != "0":  # Skip "All Leagues" for stream search
+                    print(f"{self.get_color('white')}[{key}] {league['name']}{self.get_color('reset')}")
+
+            print()
+            print(f"{self.get_color('red')}[q] Back to Main Menu{self.get_color('reset')}")
+            print()
+
+            choice = input(f"{self.get_color('cyan')}Enter your choice: {self.get_color('reset')}").strip()
+
+            if choice.lower() == 'q':
+                break
+            elif choice in self.leagues and choice != "0":
+                self.handle_stream_search_for_league(choice)
+            else:
+                print(f"{self.get_color('red')}Invalid choice. Please try again.{self.get_color('reset')}")
+                time.sleep(2)
+
+    def handle_stream_search_for_league(self, league_choice: str):
+        """Handle stream search for a specific league"""
+        league_name = self.leagues[league_choice]["name"]
+
+        print(f"{self.get_color('yellow')}Fetching matches for {league_name}...{self.get_color('reset')}")
+
+        matches_data = self.fetch_matches()
+        if not matches_data:
+            print(f"{self.get_color('red')}Could not fetch match data. Please check your internet connection.{self.get_color('reset')}")
+            input(f"{self.get_color('cyan')}Press Enter to continue...{self.get_color('reset')}")
+            return
+
+        matches = matches_data.get(league_name, [])
+        if not matches:
+            # Try alternative key formats
+            matches = matches_data.get(league_name.lower().replace(' ', '_'), [])
+        if not matches:
+            # Try other common formats
+            matches = matches_data.get(league_name.lower().replace(' ', ''), [])
+        streamable_matches = self.display_streamable_matches(league_name, matches)
+
+        if not streamable_matches:
+            input(f"{self.get_color('cyan')}Press Enter to continue...{self.get_color('reset')}")
+            return
+
+        while True:
+            choice = input().strip()
+
+            if choice.lower() == 'q':
+                break
+            elif choice.isdigit():
+                match_number = int(choice)
+                self.search_and_display_streams(match_number, league_name)
+                input(f"{self.get_color('cyan')}Press Enter to continue...{self.get_color('reset')}")
+                # Redisplay the streamable matches
+                self.display_streamable_matches(league_name, matches)
+            else:
+                print(f"{self.get_color('red')}Invalid input. Please enter a number (1-{len(streamable_matches)}) or 'q' to go back.{self.get_color('reset')}")
+
     def auto_update_league(self, league_choice: str, date_offset: int = 0):
         """Auto-update a specific league every 30 seconds"""
         league_name = self.leagues[league_choice]["name"]
@@ -2764,6 +3595,8 @@ class FootballScraper:
                 self.show_date_menu(-1)  # Yesterday
             elif choice.lower() == 't':
                 self.show_date_menu(1)   # Tomorrow
+            elif choice.lower() == 's':
+                self.show_stream_search_menu()  # Stream search
             elif choice in self.leagues:
                 self.show_single_update(choice)  # Today
             else:
