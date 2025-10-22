@@ -1,0 +1,12 @@
+[lint]
+ignore = [
+    "E722",   # bare except
+    "F841",   # local variable assigned but never used
+    "E501",   # line too long
+]
+
+[lint.per-file-ignores]
+"football_scraper.py" = [
+    "E722",   # bare except (used intentionally for fallback)
+    "F841",   # unused variable
+]
