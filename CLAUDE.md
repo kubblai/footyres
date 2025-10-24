@@ -5,7 +5,9 @@ A Python-based football results scraper that fetches live scores and match data 
 ## Project Structure
 
 - **Main Script**: `football_scraper.py` - Contains the entire application
-- **Entry Point**: `footyres.sh` - Bash script to run the Python application
+- **Entry Points**:
+  - `footyres.sh` - Bash script to run the Python application (Linux/macOS)
+  - `footyres.bat` - Batch script to run the Python application (Windows)
 - **Dependencies**: Listed in `requirements.txt` (requests, beautifulsoup4, colorama)
 
 ## Key Components
@@ -108,10 +110,19 @@ The app now includes a comprehensive stream search feature:
 ## Usage
 
 ### Command Line
+
+**Linux / macOS:**
 ```bash
 ./footyres.sh
 # or
 python3 football_scraper.py
+```
+
+**Windows:**
+```cmd
+footyres.bat
+# or
+python football_scraper.py
 ```
 
 ### Interactive Menu

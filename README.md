@@ -2,13 +2,7 @@
 
 🏆 **Real-time football results and league tables from BBC Sport with interactive terminal interface.**
 
-## Demo
-
-[![asciicast](https://asciinema.org/a/demo.cast.svg)](https://asciinema.org/a/demo.cast)
-
-*Note: Upload demo.cast to [asciinema.org](https://asciinema.org) and replace the URL above with your recording ID for the demo to work on GitHub.*
-
-### Preview
+## Preview
 ```
 🏆 FOOTBALL RESULTS SCRAPER 🏆
 ============================================================
@@ -33,6 +27,8 @@ Select a league to view:
 
 ## Quick Start
 
+### Linux / macOS
+
 ```bash
 # Option 1: Use runner script (recommended)
 chmod +x footyres.sh
@@ -43,6 +39,21 @@ chmod +x footyres.sh
 # Option 2: Manual installation
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
+python football_scraper.py
+```
+
+### Windows
+
+```cmd
+# Option 1: Use batch script (recommended)
+footyres.bat                     # Interactive menu
+footyres.bat --cl                # Direct Champions League access
+footyres.bat --help              # Show all CLI options
+
+# Option 2: Manual installation
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 python football_scraper.py
 ```
@@ -93,12 +104,31 @@ After viewing league results with flags, you can:
 - Use the normal navigation options (`r` refresh, `t` table, etc.)
 
 #### Examples
+
+**Linux / macOS:**
 ```bash
 # Using runner script (recommended)
 ./footyres.sh --cl               # Champions League today
 ./footyres.sh --pl -y            # Premier League yesterday
 ./footyres.sh --mls              # MLS standings and matches
+./footyres.sh --as               # Allsvenskan today
 ./footyres.sh --help             # Show help
+
+# Using Python directly
+python3 football_scraper.py --cl
+python3 football_scraper.py --pl --yesterday
+python3 football_scraper.py --mls
+python3 football_scraper.py --help
+```
+
+**Windows:**
+```cmd
+# Using batch script (recommended)
+footyres.bat --cl                # Champions League today
+footyres.bat --pl -y             # Premier League yesterday
+footyres.bat --mls               # MLS standings and matches
+footyres.bat --as                # Allsvenskan today
+footyres.bat --help              # Show help
 
 # Using Python directly
 python football_scraper.py --cl
@@ -110,7 +140,18 @@ python football_scraper.py --help
 ### Interactive Menu (Traditional)
 
 Run without any flags for the traditional interactive menu:
+
+**Linux / macOS:**
 ```bash
+./footyres.sh
+# or
+python3 football_scraper.py
+```
+
+**Windows:**
+```cmd
+footyres.bat
+# or
 python football_scraper.py
 ```
 
