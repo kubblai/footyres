@@ -769,6 +769,12 @@ class FootballScraper:
                 "table_url": "us-major-league",
                 "alt_urls": ["sport/football/us-major-league/table"],
             },
+            "9": {
+                "name": "Allsvenskan",
+                "keywords": ["swedish-allsvenskan", "allsvenskan", "sweden"],
+                "table_url": "swedish-allsvenskan",
+                "alt_urls": ["sport/football/swedish-allsvenskan/table"],
+            },
             "0": {
                 "name": "All Leagues",
                 "keywords": [],
@@ -851,6 +857,23 @@ class FootballScraper:
             "new-york-red-bulls": "New York Red Bulls",
             "toronto-fc": "Toronto FC",
             "vancouver-whitecaps": "Vancouver Whitecaps FC",
+            # Allsvenskan
+            "malmoe-ff": "Malmö FF",
+            "djurgarden": "Djurgården",
+            "hammarby": "Hammarby",
+            "aik": "AIK",
+            "elfsborg": "Elfsborg",
+            "hacken": "Häcken",
+            "norrkoping": "Norrköping",
+            "goteborg": "Göteborg",
+            "sirius": "Sirius",
+            "kalmar": "Kalmar FF",
+            "mjallby": "Mjällby",
+            "halmstad": "Halmstads BK",
+            "brommapojkarna": "Brommapojkarna",
+            "gais": "GAIS",
+            "varnamo": "Värnamo",
+            "vasteras": "Västerås SK",
         }
 
         self.session = requests.Session()
@@ -1083,6 +1106,43 @@ class FootballScraper:
                 "Farense",
                 "Nacional",
             ],
+            "Allsvenskan": [
+                # 2025 Allsvenskan teams (16 teams)
+                "Malmö FF",
+                "Djurgården",
+                "Hammarby",
+                "AIK",
+                "IF Elfsborg",
+                "BK Häcken",
+                "IFK Norrköping",
+                "IFK Göteborg",
+                "IK Sirius",
+                "Kalmar FF",
+                "Mjällby AIF",
+                "Halmstads BK",
+                "IF Brommapojkarna",
+                "GAIS",
+                "IFK Värnamo",
+                "Västerås SK",
+                # Alternative names
+                "Malmo FF",
+                "Elfsborg",
+                "Häcken",
+                "Hacken",
+                "Norrköping",
+                "Göteborg",
+                "Goteborg",
+                "Sirius",
+                "Kalmar",
+                "Mjällby",
+                "Mjallby",
+                "Halmstad",
+                "Brommapojkarna",
+                "Värnamo",
+                "Varnamo",
+                "Västerås",
+                "Vasteras",
+            ],
         }
 
     def get_color(self, color_name: str) -> str:
@@ -1295,6 +1355,9 @@ class FootballScraper:
             "MLS": "MLS",
             "Major League Soccer": "MLS",
             "US Major League Soccer": "MLS",
+            # Swedish league
+            "Allsvenskan": "Allsvenskan",
+            "Swedish Allsvenskan": "Allsvenskan",
         }
         return mapping.get(bbc_name)
 
@@ -4837,22 +4900,24 @@ def main():
         epilog="""
 League Flags:
   --pl, --premier      Premier League
-  --la, --laliga       La Liga  
+  --la, --laliga       La Liga
   --bu, --bundesliga   Bundesliga
   --sa, --seriea       Serie A
   --l1, --ligue1       Ligue 1
   --pr, --primeira     Primeira Liga
   --cl, --champions    UEFA Champions League
   --mls, --majorleague MLS (Major League Soccer)
-  
+  --as, --allsvenskan  Allsvenskan (Swedish League)
+
 Date Options:
   --yesterday, -y      Yesterday's results
   --tomorrow, -t       Tomorrow's fixtures
-  
+
 Examples:
   python football_scraper.py --cl           # Champions League today
   python football_scraper.py --pl -y        # Premier League yesterday
   python football_scraper.py --mls -t       # MLS tomorrow
+  python football_scraper.py --as           # Allsvenskan today
         """,
     )
 
@@ -4920,6 +4985,14 @@ Examples:
         const="8",
         dest="league",
         help="MLS (Major League Soccer)",
+    )
+    parser.add_argument(
+        "--as",
+        "--allsvenskan",
+        action="store_const",
+        const="9",
+        dest="league",
+        help="Allsvenskan (Swedish League)",
     )
     parser.add_argument(
         "--all", action="store_const", const="0", dest="league", help="All Leagues"

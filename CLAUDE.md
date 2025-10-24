@@ -49,6 +49,7 @@ A Python-based football results scraper that fetches live scores and match data 
 6. Primeira Liga
 7. UEFA Champions League
 8. MLS (Major League Soccer)
+9. Allsvenskan (Swedish League)
 
 ## Stream Search Feature
 
@@ -114,7 +115,7 @@ python3 football_scraper.py
 ```
 
 ### Interactive Menu
-- Select league number (1-8) for today's matches
+- Select league number (1-9) for today's matches
 - Use 'y' for yesterday's results
 - Use 't' for tomorrow's fixtures
 - Use 's' for stream search (new feature)

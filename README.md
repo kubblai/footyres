@@ -15,7 +15,7 @@
 Select a league to view:
 [1] Premier League  [2] La Liga  [3] Bundesliga
 [4] Serie A  [5] Ligue 1  [6] Primeira Liga
-[7] UEFA Champions League  [8] MLS
+[7] UEFA Champions League  [8] MLS  [9] Allsvenskan
 [0] All Leagues  [q] Quit
 ```
 
@@ -24,8 +24,8 @@ Select a league to view:
 ✅ **Live Match Results** - Real-time scores, goal scorers, and match status
 ✅ **League Tables** - Current standings with real BBC Sport statistics
 ✅ **Stream Search** - Find working stream links for live/upcoming matches across 18+ streaming sites
-✅ **8 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS
-✅ **Command-Line Flags** - Direct league access with `--pl`, `--cl`, `--mls`, etc.
+✅ **9 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS, Allsvenskan
+✅ **Command-Line Flags** - Direct league access with `--pl`, `--cl`, `--mls`, `--all`, etc.
 ✅ **Form Indicators** - W/D/L boxes showing recent team performance
 ✅ **HT/Live Markers** - Half-time and live match status indicators
 ✅ **Auto-Update** - Refreshes every 30 seconds
@@ -56,13 +56,14 @@ You can now jump directly into any league using command-line flags:
 #### League Flags
 ```bash
 python football_scraper.py --cl          # UEFA Champions League
-python football_scraper.py --pl          # Premier League  
+python football_scraper.py --pl          # Premier League
 python football_scraper.py --la          # La Liga
 python football_scraper.py --bu          # Bundesliga
 python football_scraper.py --sa          # Serie A
 python football_scraper.py --l1          # Ligue 1
 python football_scraper.py --pr          # Primeira Liga
 python football_scraper.py --mls         # MLS (Major League Soccer)
+python football_scraper.py --as          # Allsvenskan (Swedish League)
 python football_scraper.py --all         # All Leagues
 ```
 
@@ -82,6 +83,7 @@ python football_scraper.py --seriea      # Same as --sa
 python football_scraper.py --ligue1      # Same as --l1
 python football_scraper.py --primeira    # Same as --pr
 python football_scraper.py --majorleague # Same as --mls
+python football_scraper.py --allsvenskan # Same as --as
 ```
 
 #### Return to Menu
@@ -113,7 +115,7 @@ python football_scraper.py
 ```
 
 **Main Menu:**
-- `[1-8]` - Individual leagues (including MLS as [8])
+- `[1-9]` - Individual leagues (including MLS as [8] and Allsvenskan as [9])
 - `[0]` - View all leagues
 - `[y]` - Yesterday's results
 - `[t]` - Tomorrow's fixtures
