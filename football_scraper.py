@@ -595,6 +595,11 @@ class StreamSearcher:
         # Strategy 2: Try to find specific match URLs (original method as backup)
         if len(valid_streams) < 3:
             for site in self.streaming_sites[:6]:  # Test fewer sites to be faster
+                # Skip ppv.to as it requires special format (/live/{league}/{date}/{team-code})
+                # and is already handled by Strategy 1
+                if "ppv.to" in site:
+                    continue
+
                 for term in search_terms[:4]:  # Limit search terms per site
                     # Try multiple URL patterns
                     url_patterns = [
@@ -682,7 +687,18 @@ class StreamSearcher:
             valid_streams.extend(additional_sites)
 
         # Sort results by priority: ppv.to direct links first, then other direct links, then categories
-        return self.prioritize_stream_results(valid_streams)
+        prioritized_streams = self.prioritize_stream_results(valid_streams)
+
+        # Deduplicate by domain - keep only the first (highest priority) link for each domain
+        seen_domains = set()
+        deduplicated_streams = []
+        for stream in prioritized_streams:
+            domain = stream.get("site", "")
+            if domain not in seen_domains:
+                seen_domains.add(domain)
+                deduplicated_streams.append(stream)
+
+        return deduplicated_streams
 
     def prioritize_stream_results(
         self, streams: List[Dict[str, str]]
