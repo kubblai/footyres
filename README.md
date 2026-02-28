@@ -27,6 +27,11 @@ Select a league to view:
 
 ## Quick Start
 
+### Requirements
+
+- Python `3.14.3`
+- pip `26.0.1`
+
 ### Linux / macOS
 
 ```bash
@@ -37,9 +42,10 @@ chmod +x footyres.sh
 ./footyres.sh --help             # Show all CLI options
 
 # Option 2: Manual installation
-python3 -m venv venv
+python3.14 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+python -m pip install --upgrade pip==26.0.1
+python -m pip install -r requirements.txt
 python football_scraper.py
 ```
 
@@ -54,7 +60,8 @@ footyres.bat --help              # Show all CLI options
 # Option 2: Manual installation
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install --upgrade pip==26.0.1
+python -m pip install -r requirements.txt
 python football_scraper.py
 ```
 
@@ -115,10 +122,10 @@ After viewing league results with flags, you can:
 ./footyres.sh --help             # Show help
 
 # Using Python directly
-python3 football_scraper.py --cl
-python3 football_scraper.py --pl --yesterday
-python3 football_scraper.py --mls
-python3 football_scraper.py --help
+python3.14 football_scraper.py --cl
+python3.14 football_scraper.py --pl --yesterday
+python3.14 football_scraper.py --mls
+python3.14 football_scraper.py --help
 ```
 
 **Windows:**
@@ -145,7 +152,7 @@ Run without any flags for the traditional interactive menu:
 ```bash
 ./footyres.sh
 # or
-python3 football_scraper.py
+python3.14 football_scraper.py
 ```
 
 **Windows:**

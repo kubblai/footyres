@@ -12,13 +12,24 @@ from typing import List, Dict, Optional
 import os
 import json
 import argparse
+import subprocess
+import sys
+
+
+def _install_packages(packages: List[str]) -> bool:
+    """Install packages using the active Python interpreter."""
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", *packages])
+        return True
+    except Exception:
+        return False
 
 try:
     import requests
     from bs4 import BeautifulSoup
 except ImportError:
     print("Installing required packages...")
-    os.system("pip install requests beautifulsoup4")
+    _install_packages(["requests", "beautifulsoup4"])
     import requests
     from bs4 import BeautifulSoup
 
@@ -30,7 +41,7 @@ try:
 except ImportError:
     COLORS_AVAILABLE = False
     print("Installing colorama for colored output...")
-    os.system("pip install colorama")
+    _install_packages(["colorama"])
     try:
         from colorama import init, Fore, Style
 
@@ -4930,10 +4941,10 @@ Date Options:
   --tomorrow, -t       Tomorrow's fixtures
 
 Examples:
-  python football_scraper.py --cl           # Champions League today
-  python football_scraper.py --pl -y        # Premier League yesterday
-  python football_scraper.py --mls -t       # MLS tomorrow
-  python football_scraper.py --as           # Allsvenskan today
+  python3.14 football_scraper.py --cl       # Champions League today
+  python3.14 football_scraper.py --pl -y    # Premier League yesterday
+  python3.14 football_scraper.py --mls -t   # MLS tomorrow
+  python3.14 football_scraper.py --as       # Allsvenskan today
         """,
     )
 
