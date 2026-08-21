@@ -741,6 +741,7 @@ class StreamSearcher:
 
 class FootballScraper:
     def __init__(self):
+        self.season = "2026-27"
         self.base_url = "https://www.bbc.co.uk/sport/football/scores-fixtures"
         self.tables_base_url = "https://www.bbc.co.uk/sport/football/tables"
         self.stream_searcher = StreamSearcher()
@@ -810,99 +811,6 @@ class FootballScraper:
             },
         }
 
-        # Team ID to name mapping for BBC Sport (they use IDs instead of full names)
-        self.team_id_mapping = {
-            # Premier League
-            "arsenal": "Arsenal",
-            "liverpool": "Liverpool",
-            "manchester-city": "Manchester City",
-            "aston-villa": "Aston Villa",
-            "tottenham": "Tottenham Hotspur",
-            "chelsea": "Chelsea",
-            "newcastle": "Newcastle United",
-            "manchester-united": "Manchester United",
-            "west-ham": "West Ham United",
-            "crystal-palace": "Crystal Palace",
-            "brighton": "Brighton & Hove Albion",
-            "bournemouth": "AFC Bournemouth",
-            "fulham": "Fulham",
-            "wolves": "Wolverhampton Wanderers",
-            "everton": "Everton",
-            "brentford": "Brentford",
-            "nottingham-forest": "Nottingham Forest",
-            "ipswich": "Ipswich Town",
-            "leicester": "Leicester City",
-            "southampton": "Southampton",
-            # La Liga
-            "real-madrid": "Real Madrid",
-            "barcelona": "Barcelona",
-            "atletico-madrid": "Atlético Madrid",
-            "athletic-bilbao": "Athletic Club",
-            "real-sociedad": "Real Sociedad",
-            "real-betis": "Real Betis",
-            "villarreal": "Villarreal",
-            "valencia": "Valencia",
-            "sevilla": "Sevilla",
-            "girona": "Girona",
-            # Bundesliga
-            "bayern-munich": "Bayern Munich",
-            "borussia-dortmund": "Borussia Dortmund",
-            "rb-leipzig": "RB Leipzig",
-            "union-berlin": "Union Berlin",
-            "freiburg": "SC Freiburg",
-            "bayer-leverkusen": "Bayer Leverkusen",
-            "eintracht-frankfurt": "Eintracht Frankfurt",
-            "wolfsburg": "Wolfsburg",
-            # Champions League teams (additional European clubs)
-            "ac-milan": "AC Milan",
-            "inter-milan": "Inter Milan",
-            "juventus": "Juventus",
-            "napoli": "Napoli",
-            "psg": "Paris Saint-Germain",
-            "monaco": "AS Monaco",
-            "ajax": "Ajax",
-            "psv": "PSV Eindhoven",
-            "porto": "FC Porto",
-            "benfica": "Benfica",
-            "sporting-lisbon": "Sporting CP",
-            "shakhtar-donetsk": "Shakhtar Donetsk",
-            "dinamo-zagreb": "Dinamo Zagreb",
-            "red-star-belgrade": "Red Star Belgrade",
-            "salzburg": "RB Salzburg",
-            "celtic": "Celtic",
-            "club-brugge": "Club Brugge",
-            "galatasaray": "Galatasaray",
-            "fenerbahce": "Fenerbahçe",
-            # MLS teams (will be extracted from live table)
-            "la-galaxy": "LA Galaxy",
-            "lafc": "LAFC",
-            "inter-miami": "Inter Miami CF",
-            "atlanta-united": "Atlanta United FC",
-            "seattle-sounders": "Seattle Sounders FC",
-            "portland-timbers": "Portland Timbers",
-            "new-york-city": "New York City FC",
-            "new-york-red-bulls": "New York Red Bulls",
-            "toronto-fc": "Toronto FC",
-            "vancouver-whitecaps": "Vancouver Whitecaps FC",
-            # Allsvenskan
-            "malmoe-ff": "Malmö FF",
-            "djurgarden": "Djurgården",
-            "hammarby": "Hammarby",
-            "aik": "AIK",
-            "elfsborg": "Elfsborg",
-            "hacken": "Häcken",
-            "norrkoping": "Norrköping",
-            "goteborg": "Göteborg",
-            "sirius": "Sirius",
-            "kalmar": "Kalmar FF",
-            "mjallby": "Mjällby",
-            "halmstad": "Halmstads BK",
-            "brommapojkarna": "Brommapojkarna",
-            "gais": "GAIS",
-            "varnamo": "Värnamo",
-            "vasteras": "Västerås SK",
-        }
-
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -922,255 +830,6 @@ class FootballScraper:
                 "sec-ch-ua-platform": '"Linux"',
             }
         )
-
-        # Define EXACT 2025-26 season teams for each league (UPDATED)
-        self.league_teams = {
-            "Premier League": [
-                # 2025-26 Premier League teams (20 teams) - CURRENT SEASON
-                "Arsenal",
-                "Aston Villa",
-                "AFC Bournemouth",
-                "Brentford",
-                "Brighton & Hove Albion",
-                "Chelsea",
-                "Crystal Palace",
-                "Everton",
-                "Fulham",
-                "Ipswich Town",
-                "Leicester City",
-                "Liverpool",
-                "Manchester City",
-                "Manchester United",
-                "Newcastle United",
-                "Nottingham Forest",
-                "Southampton",
-                "Tottenham Hotspur",
-                "West Ham United",
-                "Wolverhampton Wanderers",
-                # Alternative names for matching
-                "Brighton",
-                "Bournemouth",
-                "Tottenham",
-                "West Ham",
-                "Wolves",
-                "Man City",
-                "Man United",
-                "Newcastle",
-                "Ipswich",
-            ],
-            "La Liga": [
-                # 2025-26 La Liga teams (20 teams)
-                "Real Madrid",
-                "Barcelona",
-                "Atlético Madrid",
-                "Athletic Club",
-                "Real Sociedad",
-                "Real Betis",
-                "Villarreal",
-                "Valencia",
-                "Sevilla",
-                "Girona",
-                "Mallorca",
-                "Getafe",
-                "Celta de Vigo",
-                "Osasuna",
-                "Rayo Vallecano",
-                "Las Palmas",
-                "Deportivo Alavés",
-                "Espanyol",
-                "Valladolid",
-                "Leganés",
-                # Alternative names
-                "Atletico Madrid",
-                "Celta Vigo",
-                "Athletic Bilbao",
-                "Alaves",
-                "Real Valladolid",
-            ],
-            "Serie A": [
-                # 2025-26 Serie A teams (20 teams)
-                "Juventus",
-                "Inter Milan",
-                "AC Milan",
-                "Napoli",
-                "AS Roma",
-                "Lazio",
-                "Atalanta",
-                "Fiorentina",
-                "Bologna",
-                "Torino",
-                "Genoa",
-                "Empoli",
-                "Hellas Verona",
-                "Cagliari",
-                "Udinese",
-                "Parma",
-                "Lecce",
-                "Como",
-                "Venezia",
-                "Monza",
-                # Alternative names
-                "Inter",
-                "Milan",
-                "Roma",
-                "Verona",
-            ],
-            "Bundesliga": [
-                # 2025-26 Bundesliga teams (18 teams)
-                "Bayern Munich",
-                "Borussia Dortmund",
-                "RB Leipzig",
-                "Bayer Leverkusen",
-                "Eintracht Frankfurt",
-                "VfB Stuttgart",
-                "VfL Wolfsburg",
-                "SC Freiburg",
-                "Borussia Mönchengladbach",
-                "Union Berlin",
-                "Werder Bremen",
-                "FC Augsburg",
-                "TSG Hoffenheim",
-                "FSV Mainz 05",
-                "FC Heidenheim",
-                "FC St. Pauli",
-                "Holstein Kiel",
-                "VfL Bochum",
-                # Alternative names
-                "Dortmund",
-                "Leipzig",
-                "Leverkusen",
-                "Frankfurt",
-                "Stuttgart",
-                "Wolfsburg",
-                "Freiburg",
-                "Gladbach",
-                "Mönchengladbach",
-                "Bremen",
-                "Augsburg",
-                "Hoffenheim",
-                "Mainz",
-                "Heidenheim",
-                "St. Pauli",
-                "Kiel",
-                "Bochum",
-            ],
-            "Ligue 1": [
-                # 2025-26 Ligue 1 teams (18 teams)
-                "Paris Saint-Germain",
-                "AS Monaco",
-                "Olympique Marseille",
-                "Lille",
-                "Olympique Lyonnais",
-                "Stade Rennais",
-                "OGC Nice",
-                "RC Lens",
-                "Stade Brestois",
-                "Montpellier",
-                "FC Nantes",
-                "RC Strasbourg",
-                "Stade de Reims",
-                "Toulouse FC",
-                "AJ Auxerre",
-                "Angers SCO",
-                "Le Havre AC",
-                "AS Saint-Étienne",
-                # Alternative names
-                "PSG",
-                "Paris",
-                "Monaco",
-                "Marseille",
-                "Lyon",
-                "Rennes",
-                "Nice",
-                "Lens",
-                "Brest",
-                "Nantes",
-                "Strasbourg",
-                "Reims",
-                "Toulouse",
-                "Auxerre",
-                "Angers",
-                "Le Havre",
-                "Saint-Etienne",
-                "Saint-Étienne",
-            ],
-            "Primeira Liga": [
-                # 2025-26 Primeira Liga teams (18 teams)
-                "SL Benfica",
-                "FC Porto",
-                "Sporting CP",
-                "SC Braga",
-                "Vitória SC",
-                "Rio Ave FC",
-                "Moreirense FC",
-                "FC Famalicão",
-                "Gil Vicente FC",
-                "Boavista FC",
-                "Estrela da Amadora",
-                "Casa Pia AC",
-                "FC Arouca",
-                "GD Chaves",
-                "SC Farense",
-                "CD Nacional",
-                "AVS",
-                "Santa Clara",
-                # Alternative names
-                "Benfica",
-                "Porto",
-                "Sporting",
-                "Braga",
-                "Vitória Guimarães",
-                "Vitoria Guimaraes",
-                "Rio Ave",
-                "Moreirense",
-                "Famalicão",
-                "Famalicao",
-                "Gil Vicente",
-                "Boavista",
-                "Casa Pia",
-                "Arouca",
-                "Chaves",
-                "Farense",
-                "Nacional",
-            ],
-            "Allsvenskan": [
-                # 2025 Allsvenskan teams (16 teams)
-                "Malmö FF",
-                "Djurgården",
-                "Hammarby",
-                "AIK",
-                "IF Elfsborg",
-                "BK Häcken",
-                "IFK Norrköping",
-                "IFK Göteborg",
-                "IK Sirius",
-                "Kalmar FF",
-                "Mjällby AIF",
-                "Halmstads BK",
-                "IF Brommapojkarna",
-                "GAIS",
-                "IFK Värnamo",
-                "Västerås SK",
-                # Alternative names
-                "Malmo FF",
-                "Elfsborg",
-                "Häcken",
-                "Hacken",
-                "Norrköping",
-                "Göteborg",
-                "Goteborg",
-                "Sirius",
-                "Kalmar",
-                "Mjällby",
-                "Mjallby",
-                "Halmstad",
-                "Brommapojkarna",
-                "Värnamo",
-                "Varnamo",
-                "Västerås",
-                "Vasteras",
-            ],
-        }
 
     def get_color(self, color_name: str) -> str:
         """Get color codes if colorama is available"""
@@ -1206,7 +865,7 @@ class FootballScraper:
             f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'=' * 60}{self.get_color('reset')}"
         )
         print(
-            f"{self.get_color('bold')}{self.get_color('bright_blue')} ⚽ FOOTBALL RESULTS SCRAPER ⚽ {self.get_color('reset')}"
+            f"{self.get_color('bold')}{self.get_color('bright_blue')} ⚽ FOOTBALL RESULTS SCRAPER - {self.season} ⚽ {self.get_color('reset')}"
         )
         print(f"{self.get_color('bright_cyan')}{'=' * 60}{self.get_color('reset')}")
         print()
@@ -1926,48 +1585,7 @@ class FootballScraper:
     def identify_league_from_teams(
         self, home_team: str, away_team: str
     ) -> Optional[str]:
-        """STRICT league identification - both teams must be from same league"""
-        home_lower = home_team.lower().strip()
-        away_lower = away_team.lower().strip()
-
-        # REQUIREMENT: Both teams MUST be found in the SAME league
-        for league_name, teams in self.league_teams.items():
-            home_found = False
-            away_found = False
-
-            # Check home team
-            for team in teams:
-                team_lower = team.lower()
-                if (
-                    team_lower == home_lower
-                    or team_lower in home_lower
-                    or home_lower in team_lower
-                ):
-                    home_found = True
-                    break
-
-            # Check away team
-            for team in teams:
-                team_lower = team.lower()
-                if (
-                    team_lower == away_lower
-                    or team_lower in away_lower
-                    or away_lower in team_lower
-                ):
-                    away_found = True
-                    break
-
-            # BOTH teams must be found in the SAME league
-            if home_found and away_found:
-                print(
-                    f"{self.get_color('bright_green')}  MATCH ACCEPTED - {league_name}: {home_team} vs {away_team}{self.get_color('reset')}"
-                )
-                return league_name
-
-        # If not found in any league together, REJECT the match
-        print(
-            f"{self.get_color('red')}  MATCH REJECTED - Teams not in same target league: {home_team} vs {away_team}{self.get_color('reset')}"
-        )
+        """Identify a league from a match's BBC section when JSON is unavailable."""
         return None
 
     def parse_match_line(self, line: str, league: str) -> Optional[Dict]:
@@ -2044,10 +1662,9 @@ class FootballScraper:
                         and not home_team.isdigit()
                         and not away_team.isdigit()
                     ):
-                        # STRICT: Use team-based league identification - BOTH teams must match
-                        actual_league = self.identify_league_from_teams(
-                            home_team, away_team
-                        )
+                        # BBC groups each fixture under its competition heading. Trust that
+                        # live heading instead of a season-specific list of clubs.
+                        actual_league = league
 
                         # ONLY proceed if BOTH teams are confirmed in a target league
                         if actual_league and actual_league in [
@@ -3049,38 +2666,22 @@ class FootballScraper:
             # Extract team name from various possible structures - enhanced search
             team_name = "Unknown"
 
-            # Method 1: PRIORITY - Use teamId to map to actual team name (BBC Sport specific)
-            if "teamId" in entry:
-                team_id = entry["teamId"]
-                if team_id in self.team_id_mapping:
-                    team_name = self.team_id_mapping[team_id]
-                    print(f"  ✅ Found team via teamId: '{team_id}' → '{team_name}'")
-                else:
-                    print(f"  ⚠️  Unknown teamId: '{team_id}'")
-
-            # Method 2: Try team object with ID
-            elif "team" in entry and isinstance(entry["team"], dict):
+            # Method 1: Try the nested team object supplied by BBC
+            if "team" in entry and isinstance(entry["team"], dict):
                 team_obj = entry["team"]
-                # Check for ID first
-                if "id" in team_obj and team_obj["id"] in self.team_id_mapping:
-                    team_name = self.team_id_mapping[team_obj["id"]]
-                    print(
-                        f"  ✅ Found team via team.id: '{team_obj['id']}' → '{team_name}'"
-                    )
-                # Then check for name fields
-                else:
-                    team_name = (
-                        team_obj.get("name")
-                        or team_obj.get("displayName")
-                        or team_obj.get("fullName")
-                        or team_obj.get("shortName")
-                        or team_obj.get("clubName")
-                        or team_obj.get("teamName")
-                    )
-                    if team_name:
-                        print(f"  Found nested team name: {team_name}")
+                team_name = (
+                    team_obj.get("name")
+                    or team_obj.get("displayName")
+                    or team_obj.get("fullName")
+                    or team_obj.get("shortName")
+                    or team_obj.get("clubName")
+                    or team_obj.get("teamName")
+                    or "Unknown"
+                )
+                if team_name != "Unknown":
+                    print(f"  Found nested team name: {team_name}")
 
-            # Method 3: Standard team fields (fallback)
+            # Method 2: Standard team fields (fallback)
             if team_name == "Unknown":
                 team_fields = [
                     "team",
@@ -3103,7 +2704,7 @@ class FootballScraper:
                             print(f"  Found team name in '{field}': {team_name}")
                             break
 
-            # Method 4: Last resort - search ALL fields intelligently
+            # Method 3: Last resort - search ALL fields intelligently
             if team_name == "Unknown":
                 print(f"  Last resort: searching all fields in entry {i + 1}...")
                 for key, value in entry.items():
@@ -3213,81 +2814,8 @@ class FootballScraper:
                     f"     Raw entry: {dict(list(entry.items())[:8])}"
                 )  # Show first 8 fields
 
-        # Sort by position to ensure correct order
         if processed_table:
             processed_table.sort(key=lambda x: x["position"])
-
-            # ALWAYS apply proper team names - replace any invalid names
-            print(
-                f"🔧 Checking all {len(processed_table)} entries for proper team names..."
-            )
-
-            # Use the correct league's team names
-            target_league = league_name or "Premier League"
-            if target_league in self.league_teams:
-                # Get unique team names, excluding alternative names
-                all_teams = self.league_teams[target_league]
-                unique_teams = []
-                seen = set()
-
-                for team in all_teams:
-                    # Skip short alternative names and duplicates
-                    if len(team) > 4 and team not in seen:
-                        # Skip obvious alternative names that are substrings
-                        is_alt_name = any(
-                            team in longer_team and team != longer_team
-                            for longer_team in all_teams
-                            if len(longer_team) > len(team)
-                        )
-                        if not is_alt_name:
-                            unique_teams.append(team)
-                            seen.add(team)
-                            if len(unique_teams) >= 20:
-                                break
-
-                print(
-                    f"📋 Using {target_league} teams: {unique_teams[:3]}... (total: {len(unique_teams)})"
-                )
-
-                # Apply proper team names to ALL positions
-                invalid_count = 0
-                for team_data in processed_table:
-                    pos = team_data["position"] - 1  # Convert to 0-based index
-                    current_team = team_data["team"]
-
-                    # Check if current team name is invalid (number, unknown, very short)
-                    is_invalid = (
-                        current_team == "Unknown"
-                        or current_team.isdigit()
-                        or len(current_team) <= 2
-                        or current_team.startswith("Team ")
-                    )
-
-                    if is_invalid:
-                        invalid_count += 1
-                        if pos < len(unique_teams):
-                            team_data["team"] = unique_teams[pos]
-                            print(
-                                f"  ✅ Position {team_data['position']}: '{current_team}' → '{unique_teams[pos]}'"
-                            )
-                        else:
-                            # Use a generic fallback if we run out of real team names
-                            fallback_name = (
-                                f"{target_league} Team {team_data['position']}"
-                            )
-                            team_data["team"] = fallback_name
-                            print(
-                                f"  ⚠️  Position {team_data['position']}: '{current_team}' → '{fallback_name}'"
-                            )
-
-                if invalid_count == 0:
-                    print("  ✅ All team names look good!")
-                else:
-                    print(
-                        f"  🔧 Fixed {invalid_count}/{len(processed_table)} invalid team names"
-                    )
-            else:
-                print(f"  ❌ No team data found for league: {target_league}")
 
         return processed_table if processed_table else None
 
@@ -3422,365 +2950,6 @@ class FootballScraper:
 
         return cleaned_name
 
-    def get_sample_table_data(self, league_name: str) -> List[Dict]:
-        """Generate sample table data using actual teams from league_teams"""
-        # Get the correct teams from our existing league_teams data
-        teams_list = []
-        if league_name in self.league_teams:
-            # Get unique team names (since league_teams includes alternative names)
-            all_teams = self.league_teams[league_name]
-            seen_teams = set()
-            for team in all_teams:
-                # Skip alternative short names that are substrings of longer names
-                if not any(
-                    team in existing and team != existing for existing in seen_teams
-                ):
-                    if team not in seen_teams:
-                        seen_teams.add(team)
-                        teams_list.append(team)
-                        if len(teams_list) >= 20:  # Limit to 20 teams
-                            break
-
-        if not teams_list:
-            teams_list = [f"Team {i}" for i in range(1, 21)]
-
-        sample_data = []
-
-        # Get current date to determine realistic games played (2025-26 season started August 2025)
-        from datetime import datetime
-
-        current_date = datetime.now()
-
-        # Calculate games played based on current date (2025-26 season started August 2025)
-        if current_date.year == 2025 and current_date.month >= 8:
-            # August 2025 onwards - current season
-            weeks_passed = (
-                ((current_date.year - 2025) * 52)
-                + ((current_date.month - 8) * 4.3)
-                + (current_date.day / 7)
-            )
-        elif current_date.year >= 2026:
-            # 2026 onwards - later in season
-            weeks_passed = (
-                ((current_date.year - 2025) * 52)
-                + (current_date.month * 4.3)
-                + (current_date.day / 7)
-                - (4.3 * 4)
-            )  # Subtract summer break
-        else:
-            # Before August 2025 - season hasn't started yet
-            weeks_passed = 0
-
-        # Realistic games played (roughly 1 game per week, max 38)
-        base_games_played = max(1, min(int(weeks_passed), 38))
-
-        for i, team in enumerate(teams_list[:20]):  # Limit to 20 teams
-            # Generate realistic sample data for current season progress
-            played = max(
-                1, base_games_played + (i % 3) - 1
-            )  # Slight variation per team
-            played = min(played, 38)  # Max 38 games in Premier League
-
-            # Use real Arsenal data as provided by user (6 points, 6 goals, 0 conceded)
-            if team == "Arsenal":
-                played = 2  # 2 games to get 6 points (2 wins)
-                won = 2
-                drawn = 0
-                lost = 0
-                gf = 6  # Real data: scored 6
-                ga = 0  # Real data: conceded 0
-                gd = 6
-                points = 6  # Real data: 6 points
-            else:
-                # Realistic win/loss distribution based on league position
-                if i < 4:  # Top 4 teams
-                    win_rate = 0.70
-                elif i < 8:  # Mid-table teams
-                    win_rate = 0.45
-                elif i < 15:  # Lower mid-table
-                    win_rate = 0.35
-                else:  # Relegation candidates
-                    win_rate = 0.25
-
-                won = int(played * win_rate)
-                lost = int(played * (0.8 - win_rate))  # Remaining games mostly losses
-                drawn = played - won - lost
-
-                # Realistic goal statistics
-                gf = max(won * 2 + drawn, played // 2)  # At least 0.5 goals per game
-                ga = max(
-                    lost * 2 + (drawn // 2), played // 3
-                )  # Concede more when losing
-                gd = gf - ga
-                points = (won * 3) + drawn
-
-            sample_data.append(
-                {
-                    "position": i + 1,
-                    "team": team,
-                    "played": played,
-                    "won": won,
-                    "drawn": drawn,
-                    "lost": lost,
-                    "goals_for": gf,
-                    "goals_against": ga,
-                    "goal_difference": gd,
-                    "points": points,
-                }
-            )
-
-        return sample_data
-
-    def get_current_standings(self, league_name: str) -> List[Dict]:
-        """Get actual current standings as of 24/08/2025 (from BBC Sport screenshot)"""
-        if league_name == "Premier League":
-            # ACTUAL Premier League standings matching the BBC Sport screenshot exactly
-            return [
-                {
-                    "position": 1,
-                    "team": "Arsenal",
-                    "played": 2,
-                    "won": 2,
-                    "drawn": 0,
-                    "lost": 0,
-                    "goals_for": 6,
-                    "goals_against": 0,
-                    "goal_difference": 6,
-                    "points": 6,
-                },
-                {
-                    "position": 2,
-                    "team": "Tottenham Hotspur",
-                    "played": 2,
-                    "won": 2,
-                    "drawn": 0,
-                    "lost": 0,
-                    "goals_for": 5,
-                    "goals_against": 0,
-                    "goal_difference": 5,
-                    "points": 6,
-                },
-                {
-                    "position": 3,
-                    "team": "Chelsea",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 1,
-                    "lost": 0,
-                    "goals_for": 5,
-                    "goals_against": 1,
-                    "goal_difference": 4,
-                    "points": 4,
-                },
-                {
-                    "position": 4,
-                    "team": "Liverpool",
-                    "played": 1,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 0,
-                    "goals_for": 4,
-                    "goals_against": 2,
-                    "goal_difference": 2,
-                    "points": 3,
-                },
-                {
-                    "position": 5,
-                    "team": "Manchester City",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 4,
-                    "goals_against": 2,
-                    "goal_difference": 2,
-                    "points": 3,
-                },
-                {
-                    "position": 6,
-                    "team": "Nottingham Forest",
-                    "played": 1,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 0,
-                    "goals_for": 3,
-                    "goals_against": 1,
-                    "goal_difference": 2,
-                    "points": 3,
-                },
-                {
-                    "position": 7,
-                    "team": "Sunderland",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 3,
-                    "goals_against": 2,
-                    "goal_difference": 1,
-                    "points": 3,
-                },
-                {
-                    "position": 8,
-                    "team": "AFC Bournemouth",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 3,
-                    "goals_against": 4,
-                    "goal_difference": -1,
-                    "points": 3,
-                },
-                {
-                    "position": 9,
-                    "team": "Brentford",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 2,
-                    "goals_against": 3,
-                    "goal_difference": -1,
-                    "points": 3,
-                },
-                {
-                    "position": 10,
-                    "team": "Burnley",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 2,
-                    "goals_against": 3,
-                    "goal_difference": -1,
-                    "points": 3,
-                },
-                {
-                    "position": 11,
-                    "team": "Leeds United",
-                    "played": 2,
-                    "won": 1,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 1,
-                    "goals_against": 5,
-                    "goal_difference": -4,
-                    "points": 3,
-                },
-                {
-                    "position": 12,
-                    "team": "Brighton & Hove Albion",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 1,
-                    "lost": 0,
-                    "goals_for": 1,
-                    "goals_against": 1,
-                    "goal_difference": 0,
-                    "points": 1,
-                },
-                {
-                    "position": 13,
-                    "team": "Fulham",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 1,
-                    "lost": 0,
-                    "goals_for": 1,
-                    "goals_against": 1,
-                    "goal_difference": 0,
-                    "points": 1,
-                },
-                {
-                    "position": 14,
-                    "team": "Crystal Palace",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 1,
-                    "lost": 0,
-                    "goals_for": 0,
-                    "goals_against": 0,
-                    "goal_difference": 0,
-                    "points": 1,
-                },
-                {
-                    "position": 15,
-                    "team": "Newcastle United",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 1,
-                    "lost": 0,
-                    "goals_for": 0,
-                    "goals_against": 0,
-                    "goal_difference": 0,
-                    "points": 1,
-                },
-                {
-                    "position": 16,
-                    "team": "Aston Villa",
-                    "played": 2,
-                    "won": 0,
-                    "drawn": 1,
-                    "lost": 1,
-                    "goals_for": 0,
-                    "goals_against": 1,
-                    "goal_difference": -1,
-                    "points": 1,
-                },
-                {
-                    "position": 17,
-                    "team": "Everton",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 0,
-                    "goals_against": 1,
-                    "goal_difference": -1,
-                    "points": 0,
-                },
-                {
-                    "position": 18,
-                    "team": "Manchester United",
-                    "played": 1,
-                    "won": 0,
-                    "drawn": 0,
-                    "lost": 1,
-                    "goals_for": 0,
-                    "goals_against": 1,
-                    "goal_difference": -1,
-                    "points": 0,
-                },
-                {
-                    "position": 19,
-                    "team": "Wolverhampton Wanderers",
-                    "played": 2,
-                    "won": 0,
-                    "drawn": 0,
-                    "lost": 2,
-                    "goals_for": 0,
-                    "goals_against": 5,
-                    "goal_difference": -5,
-                    "points": 0,
-                },
-                {
-                    "position": 20,
-                    "team": "West Ham United",
-                    "played": 2,
-                    "won": 0,
-                    "drawn": 0,
-                    "lost": 2,
-                    "goals_for": 1,
-                    "goals_against": 8,
-                    "goal_difference": -7,
-                    "points": 0,
-                },
-            ]
-        else:
-            # For other leagues, use the sample data method
-            return self.get_sample_table_data(league_name)
-
     def display_league_table(self, league_choice: str):
         """Display league table for selected league"""
         league_name = self.leagues[league_choice]["name"]
@@ -3793,13 +2962,7 @@ class FootballScraper:
 
         if not table_data:
             print(
-                f"{self.get_color('yellow')}Using current {league_name} standings with real team names...{self.get_color('reset')}"
-            )
-            table_data = self.get_current_standings(league_name)
-
-        if not table_data:
-            print(
-                f"{self.get_color('red')}No table data available for {league_name}{self.get_color('reset')}"
+                f"{self.get_color('red')}No live BBC table data available for {league_name}{self.get_color('reset')}"
             )
             return
 
@@ -3916,7 +3079,7 @@ class FootballScraper:
                 gd = team.get("goal_difference", 0)
                 pts = team.get("points", 0)
 
-                # Generate form indicators (simulate recent form)
+                # Render the recent form supplied by BBC Sport.
                 form = self.generate_team_form(team, played)
 
                 # Color coding for positions
@@ -3952,15 +3115,7 @@ class FootballScraper:
 
     def extract_teams_from_css(self, soup: BeautifulSoup) -> Optional[List[Dict]]:
         """Extract team names and real statistics from BBC Sport HTML table"""
-        import re
-
-        # First try to parse the HTML table structure for real stats
-        table_data = self.parse_html_table_stats(soup)
-        if table_data:
-            return table_data
-
-        # Fallback to CSS extraction with simulated stats (old method)
-        return self.extract_teams_from_css_fallback(soup)
+        return self.parse_html_table_stats(soup)
 
     def parse_html_table_stats(self, soup: BeautifulSoup) -> Optional[List[Dict]]:
         """Parse real statistics from BBC Sport HTML table structure"""
@@ -4026,70 +3181,6 @@ class FootballScraper:
             except (ValueError, IndexError):
                 continue
 
-        return teams if teams else None
-
-    def extract_teams_from_css_fallback(
-        self, soup: BeautifulSoup
-    ) -> Optional[List[Dict]]:
-        """Fallback: Extract team names from CSS content patterns with simulated stats"""
-        import re
-
-        # Get the page content as text
-        page_content = str(soup)
-
-        # Find team name patterns in CSS (excluding header columns)
-        team_pattern = r'\.ssrcss-([a-z0-9]+)-Element::before\{content:"([^"]+)"\;'
-        matches = re.findall(team_pattern, page_content)
-
-        # Filter out header columns (like "Team", "Points", etc.)
-        header_terms = [
-            "Team",
-            "Played",
-            "Won",
-            "Drawn",
-            "Lost",
-            "Goals For",
-            "Goals Against",
-            "Goal Difference",
-            "Points",
-            "Form",
-            "Last",
-            "games",
-            "Oldest",
-            "first",
-        ]
-
-        teams = []
-        position = 1
-        for css_class, team_name in matches:
-            # Skip header terms and short names
-            if (
-                any(header in team_name for header in header_terms)
-                or len(team_name) < 3
-            ):
-                continue
-
-            # Only include team names that look like actual football teams
-            if any(char.isalpha() for char in team_name) and len(team_name) > 3:
-                teams.append(
-                    {
-                        "position": position,
-                        "team": team_name,
-                        "played": 2,  # Early season defaults
-                        "won": max(0, 3 - position // 3),  # Simulate based on position
-                        "drawn": min(1, position // 10),
-                        "lost": min(2, (position - 1) // 7),
-                        "goals_for": max(1, 6 - position // 4),
-                        "goals_against": min(5, position // 4),
-                        "goal_difference": max(-5, 6 - position),
-                        "points": max(0, 9 - position),  # Realistic point distribution
-                    }
-                )
-                position += 1
-
-        print(
-            f"🔍 Extracted {len(teams)} teams from BBC Sport CSS (fallback with simulated stats)"
-        )
         return teams if teams else None
 
     def extract_form_guide(self, entry: Dict) -> Optional[List[str]]:

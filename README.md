@@ -1,10 +1,10 @@
 # Football Results Scraper
 
-🏆 **Real-time football results and league tables from BBC Sport with interactive terminal interface.**
+🏆 **2026-27 live football results and league tables from BBC Sport with an interactive terminal interface.**
 
 ## Preview
 ```
-🏆 FOOTBALL RESULTS SCRAPER 🏆
+🏆 FOOTBALL RESULTS SCRAPER - 2026-27 🏆
 ============================================================
 Select a league to view:
 [1] Premier League  [2] La Liga  [3] Bundesliga
@@ -212,7 +212,7 @@ Enter match number (1-3) to search for streams...
 🎯 Found 12 working streams for Real Madrid vs Barcelona:
 
 🥇 PRIORITY STREAMS (ppv.to):
-1. https://ppv.to/live/laliga/2025-09-14/rmad-bar
+1. https://ppv.to/live/laliga/2026-09-14/rmad-bar
 
 🥈 DIRECT MATCH STREAMS:
 2. https://watchsports.to/live/madrid-barcelona
@@ -255,6 +255,7 @@ Match 1: 15:00
 ## Notes
 
 - **Real Data**: Extracts live statistics from BBC Sport tables
+- **2026-27 Season**: Team names, fixtures, scores, and standings come from BBC Sport rather than a hardcoded club list
 - **Educational Use**: Designed for personal/educational purposes
 - **Cross-Platform**: Works on Linux, macOS, Windows
-- **Offline Fallback**: Shows sample data if BBC Sport unavailable
+- **No Fabricated Standings**: Reports when BBC data is unavailable instead of showing stale sample data
