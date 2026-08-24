@@ -8,12 +8,13 @@ Interactive menu for selecting leagues and viewing options
 import time
 from datetime import datetime, timedelta
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import os
 import json
 import argparse
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 
 def _install_packages(packages: List[str]) -> bool:
@@ -1192,10 +1193,11 @@ class FootballScraper:
                 elif action_type == "card":
                     for card_action in action.get("actions", []):
                         card_type = card_action.get("type", "")
-                        if card_type in ["Red Card", "Two Yellow Cards"]:
+                        if card_type in ["Yellow Card", "Red Card", "Two Yellow Cards"]:
                             time_label = card_action.get("timeLabel", {})
                             minute = time_label.get("value", "")
-                            home_cards.append(f"🟥 {player_name} {minute}")
+                            icon = "🟨" if card_type == "Yellow Card" else "🟥"
+                            home_cards.append(f"{icon} {player_name} {minute}")
 
             # Away team actions (goals and cards)
             for action in away.get("actions", []):
@@ -1224,10 +1226,11 @@ class FootballScraper:
                 elif action_type == "card":
                     for card_action in action.get("actions", []):
                         card_type = card_action.get("type", "")
-                        if card_type in ["Red Card", "Two Yellow Cards"]:
+                        if card_type in ["Yellow Card", "Red Card", "Two Yellow Cards"]:
                             time_label = card_action.get("timeLabel", {})
                             minute = time_label.get("value", "")
-                            away_cards.append(f"🟥 {player_name} {minute}")
+                            icon = "🟨" if card_type == "Yellow Card" else "🟥"
+                            away_cards.append(f"{icon} {player_name} {minute}")
 
             # Combined scorers for backwards compatibility
             scorers = home_scorers + away_scorers
@@ -1260,6 +1263,7 @@ class FootballScraper:
                 "home_cards": home_cards,
                 "away_cards": away_cards,
                 "time": match_time,
+                "onward_journey_link": event.get("onwardJourneyLink", ""),
                 "is_multi_leg": is_multi_leg,
                 "home_agg": home_agg,
                 "away_agg": away_agg,
@@ -3245,6 +3249,14 @@ class FootballScraper:
         # Return form indicators only if we have real data, otherwise empty string
         return " ".join(form_indicators) if form_indicators else ""
 
+    def format_card_action(self, card: str) -> str:
+        """Color a BBC card event while preserving its yellow/red type."""
+        is_yellow = card.startswith("🟨")
+        icon = "🟨" if is_yellow else "🟥"
+        color = "bright_yellow" if is_yellow else "red"
+        text = card.removeprefix("🟨 ").removeprefix("🟥 ")
+        return f"{self.get_color(color)}{icon} {text}{self.get_color('reset')}"
+
     def display_league_matches(self, league_name: str, matches: List[Dict]):
         """Display matches for a specific league"""
         if not matches:
@@ -3370,10 +3382,7 @@ class FootballScraper:
                     f"{self.get_color('bright_yellow')}⚽ {clean_scorer}{self.get_color('reset')}"
                 )
             for card in home_cards:
-                clean_card = card.replace("🟥 ", "")
-                home_actions.append(
-                    f"{self.get_color('red')}🟥 {clean_card}{self.get_color('reset')}"
-                )
+                home_actions.append(self.format_card_action(card))
 
             away_actions = []
             for scorer in away_scorers:
@@ -3382,10 +3391,7 @@ class FootballScraper:
                     f"{self.get_color('bright_yellow')}⚽ {clean_scorer}{self.get_color('reset')}"
                 )
             for card in away_cards:
-                clean_card = card.replace("🟥 ", "")
-                away_actions.append(
-                    f"{self.get_color('red')}🟥 {clean_card}{self.get_color('reset')}"
-                )
+                away_actions.append(self.format_card_action(card))
 
             # Print actions side by side
             if home_actions or away_actions:
@@ -3768,6 +3774,115 @@ class FootballScraper:
 
         return None
 
+    def extract_cards_from_lineup_data(
+        self, lineup_data: Dict, match: Dict
+    ) -> Tuple[List[str], List[str]]:
+        """Extract both teams' yellow and red cards from BBC lineup data."""
+        home_cards: List[str] = []
+        away_cards: List[str] = []
+        side_by_urn = {}
+
+        for side, key in (("home", "homeTeam"), ("away", "awayTeam")):
+            team = lineup_data.get(key, {})
+            if team.get("urn"):
+                side_by_urn[team["urn"]] = side
+
+        home_name = match.get("home_team", "").casefold()
+        away_name = match.get("away_team", "").casefold()
+
+        for player in lineup_data.get("playerStats") or []:
+            side = side_by_urn.get(player.get("teamUrn"))
+            if not side:
+                team_name = player.get("teamName", "").casefold()
+                if team_name == home_name:
+                    side = "home"
+                elif team_name == away_name:
+                    side = "away"
+            if not side:
+                continue
+
+            player_name = player.get("displayName", "Unknown")
+            target = home_cards if side == "home" else away_cards
+            for card in player.get("cards") or []:
+                card_type = card.get("type", "")
+                if isinstance(card_type, dict):
+                    card_type = card_type.get("accessibleValue", "")
+                card_type_lower = str(card_type).lower()
+                is_second_yellow = (
+                    "two yellow" in card_type_lower
+                    or "second yellow" in card_type_lower
+                )
+                if "yellow" in card_type_lower and not is_second_yellow:
+                    icon = "🟨"
+                elif "red" in card_type_lower or is_second_yellow:
+                    icon = "🟥"
+                else:
+                    continue
+
+                time_label = card.get("timeLabel", card.get("time", {}))
+                if isinstance(time_label, dict):
+                    minute = time_label.get("value", "")
+                else:
+                    minute = str(time_label)
+                event = f"{icon} {player_name} {minute}".rstrip()
+                if event not in target:
+                    target.append(event)
+
+        return home_cards, away_cards
+
+    def fetch_match_cards(
+        self, match: Dict
+    ) -> Optional[Tuple[List[str], List[str]]]:
+        """Fetch card details omitted from BBC's scores/fixtures payload."""
+        detail_path = match.get("onward_journey_link", "")
+        if not detail_path:
+            return None
+
+        detail_url = (
+            detail_path
+            if detail_path.startswith("http")
+            else f"https://www.bbc.co.uk{detail_path}"
+        )
+
+        try:
+            response = requests.get(
+                detail_url, headers=self.session.headers, timeout=5
+            )
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            for script in soup.find_all("script"):
+                if not script.string or "__INITIAL_DATA__" not in script.string:
+                    continue
+                initial_data_match = re.search(
+                    r'window\.__INITIAL_DATA__="(.*?)"(?:\s*;\s*$|\s*;|\s*$)',
+                    script.string,
+                    re.DOTALL,
+                )
+                if not initial_data_match:
+                    continue
+
+                json_str = initial_data_match.group(1).replace('\\"', '"').replace(
+                    "\\\\", "\\"
+                )
+                data = json.loads(json_str).get("data", {})
+                lineup_key = next(
+                    (key for key in data if key.startswith("match-lineups?")), None
+                )
+                if lineup_key:
+                    lineup_data = data[lineup_key].get("data", {})
+                    return self.extract_cards_from_lineup_data(lineup_data, match)
+        except (
+            requests.RequestException,
+            json.JSONDecodeError,
+            AttributeError,
+            TypeError,
+            ValueError,
+        ):
+            pass
+
+        return None
+
     def collect_now_playing_matches(self) -> List[Dict]:
         """Fetch today's fixtures across all leagues and keep Now Playing ones"""
         all_matches = self.fetch_matches(0)
@@ -3785,7 +3900,27 @@ class FootballScraper:
                 entry = dict(match)
                 entry["category"] = category
                 entry["start_dt"] = self.get_match_start_datetime(match)
+                if category == "live":
+                    entry["card_details_available"] = False
                 entries.append(entry)
+
+        live_entries = [entry for entry in entries if entry["category"] == "live"]
+        if live_entries:
+            with ThreadPoolExecutor(max_workers=min(4, len(live_entries))) as executor:
+                card_results = executor.map(self.fetch_match_cards, live_entries)
+                for entry, card_result in zip(live_entries, card_results):
+                    if card_result is not None:
+                        entry["card_details_available"] = True
+                        for key, detail_cards in zip(
+                            ("home_cards", "away_cards"), card_result
+                        ):
+                            existing_cards = list(entry.get(key, []))
+                            existing_cards.extend(
+                                card
+                                for card in detail_cards
+                                if card not in existing_cards
+                            )
+                            entry[key] = existing_cards
 
         category_order = {"live": 0, "upcoming": 1, "finished": 2}
         fallback_ts = datetime.max.timestamp()
@@ -3849,11 +3984,7 @@ class FootballScraper:
             if category == "live":
                 badge = status if "'" in status else f"[{status}]"
                 note = ""
-                score_display = (
-                    f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}"
-                    if home_score or away_score
-                    else "vs"
-                )
+                score_display = f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}"
             elif category == "upcoming":
                 badge = "[NOT STARTED]"
                 note = ""
@@ -3890,6 +4021,33 @@ class FootballScraper:
                 f"{note} {self.get_color('cyan')}({league_name}){self.get_color('reset')}"
             )
 
+            if category == "live":
+                for team_name, scorers, cards in (
+                    (
+                        home_team,
+                        entry.get("home_scorers", []),
+                        entry.get("home_cards", []),
+                    ),
+                    (
+                        away_team,
+                        entry.get("away_scorers", []),
+                        entry.get("away_cards", []),
+                    ),
+                ):
+                    incidents = [
+                        f"{self.get_color('bright_yellow')}{scorer}{self.get_color('reset')}"
+                        for scorer in scorers
+                    ]
+                    incidents.extend(self.format_card_action(card) for card in cards)
+                    if incidents:
+                        print(f"      {team_name}:")
+                        for incident in incidents:
+                            print(f"        {incident}")
+                if not entry.get("card_details_available", False):
+                    print(
+                        f"      {self.get_color('dim')}Card details unavailable from BBC{self.get_color('reset')}"
+                    )
+
     def show_now_playing(self):
         """Now Playing view with auto-refresh across all leagues.
 
@@ -3907,6 +4065,7 @@ class FootballScraper:
 
         try:
             while True:
+                refresh_started = time.monotonic()
                 self.clear_screen()
 
                 updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3918,10 +4077,15 @@ class FootballScraper:
                 entries = self.collect_now_playing_matches()
                 self.display_now_playing(entries)
 
-                print(
-                    f"\n{self.get_color('cyan')}Next update in {self.now_playing_refresh_seconds} seconds... (Ctrl+C to return to menu){self.get_color('reset')}"
+                refresh_delay = max(
+                    0,
+                    self.now_playing_refresh_seconds
+                    - (time.monotonic() - refresh_started),
                 )
-                time.sleep(self.now_playing_refresh_seconds)
+                print(
+                    f"\n{self.get_color('cyan')}Next update in {int(round(refresh_delay))} seconds... (Ctrl+C to return to menu){self.get_color('reset')}"
+                )
+                time.sleep(refresh_delay)
 
         except KeyboardInterrupt:
             print(
