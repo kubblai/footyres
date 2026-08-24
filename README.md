@@ -16,6 +16,7 @@ Select a league to view:
 ## Features
 
 ✅ **Live Match Results** - Real-time scores, goal scorers, and match status
+✅ **Now Playing** - Auto-refreshing view of live matches, matches starting within 30 minutes, and matches that just finished (all leagues)
 ✅ **League Tables** - Current standings with real BBC Sport statistics
 ✅ **Stream Search** - Find working stream links for live/upcoming matches across 18+ streaming sites
 ✅ **9 Major Leagues** - Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Primeira Liga, UEFA Champions League, MLS, Allsvenskan
@@ -165,10 +166,40 @@ python football_scraper.py
 **Main Menu:**
 - `[1-9]` - Individual leagues (including MLS as [8] and Allsvenskan as [9])
 - `[0]` - View all leagues
+- `[n]` - Now Playing (live / starting soon / just finished, all leagues)
 - `[y]` - Yesterday's results
 - `[t]` - Tomorrow's fixtures
 - `[s]` - Search streams for live/upcoming matches
 - `[q]` - Quit
+
+## Now Playing Feature
+
+Select `[n]` from the main menu for a live dashboard covering **all leagues at once**, which refreshes automatically every 30 seconds (press `Ctrl+C` to return to the menu).
+
+It shows three groups of matches:
+
+- **LIVE NOW** - Matches currently in play (including half-time and minute indicators like `67'`)
+- **STARTING SOON (NOT YET STARTED)** - Fixtures kicking off within the next 30 minutes, with a "starts in X min" countdown
+- **JUST FINISHED** - Final scores of matches that ended within the last 30 minutes
+
+Sample output:
+
+```
+⚽ NOW PLAYING - ALL LEAGUES ⚽
+
+--- LIVE NOW ---
+ 14:00 Arsenal 2-1 Chelsea [67'] (Premier League)
+ 14:30 Getafe vs Sevilla HT (La Liga)
+
+--- STARTING SOON (NOT YET STARTED) ---
+ 15:45 Inter vs Juventus [NOT STARTED] (starts in 12 min) (Serie A)
+
+--- JUST FINISHED ---
+ 13:30 Celtic 2-0 Rangers [JUST FINISHED] (FT) (Premier League)
+```
+
+> Finished matches are detected by estimating full time as kick-off plus a typical match duration (~110 minutes), since BBC Sport does not publish an end timestamp.
+
 
 **League View:**
 - `[r]` - Refresh results

@@ -745,6 +745,9 @@ class FootballScraper:
         self.base_url = "https://www.bbc.co.uk/sport/football/scores-fixtures"
         self.tables_base_url = "https://www.bbc.co.uk/sport/football/tables"
         self.stream_searcher = StreamSearcher()
+        self.now_playing_window_minutes = 30
+        self.now_playing_refresh_seconds = 30
+        self.estimated_match_duration_minutes = 110
         self.leagues = {
             "1": {
                 "name": "Premier League",
@@ -886,6 +889,9 @@ class FootballScraper:
 
         print()
         print(f"{self.get_color('cyan')}Other Options:{self.get_color('reset')}")
+        print(
+            f"{self.get_color('bright_red')}[n] Now Playing (Live / Starting soon / Just finished){self.get_color('reset')}"
+        )
         print(
             f"{self.get_color('bright_magenta')}[y] Yesterday's Results{self.get_color('reset')}"
         )
@@ -3701,6 +3707,228 @@ class FootballScraper:
                     f"{self.get_color('red')}Invalid input. Please enter a number (1-{len(streamable_matches)}) or 'q' to go back.{self.get_color('reset')}"
                 )
 
+    def get_match_start_datetime(self, match: Dict) -> Optional[datetime]:
+        """Parse a match's 'HH:MM' kick-off time into a full local datetime.
+
+        Times later today are returned as-is; times more than 12 hours in the
+        past are assumed to be tomorrow's fixtures (same heuristic as
+        is_streamable_match).
+        """
+        match_time = match.get("time", "")
+        if not match_time or ":" not in match_time:
+            return None
+
+        try:
+            hour_str, minute_str = match_time.split(":")[:2]
+            start_dt = datetime.now().replace(
+                hour=int(hour_str), minute=int(minute_str), second=0, microsecond=0
+            )
+        except (ValueError, AttributeError):
+            return None
+
+        now = datetime.now()
+        if start_dt < now and (now - start_dt).total_seconds() > 43200:
+            start_dt += timedelta(days=1)
+
+        return start_dt
+
+    def classify_now_playing_match(self, match: Dict) -> Optional[str]:
+        """Classify a match as 'live', 'upcoming' or 'finished' for Now Playing.
+
+        - live: currently in play (LIVE, HT, ET or a minute like 67')
+        - upcoming: kicks off within the next 30 minutes (not yet started)
+        - finished: final score, ended within the last 30 minutes
+        Returns None when the match does not belong in the section.
+        """
+        status = match.get("status", "")
+
+        if status in ["LIVE", "HT", "ET"] or "'" in status:
+            return "live"
+
+        start_dt = self.get_match_start_datetime(match)
+
+        # Upcoming fixture (BBC reports these with an empty status)
+        if not status:
+            if start_dt:
+                seconds_until_start = (
+                    start_dt - datetime.now()
+                ).total_seconds()
+                if 0 <= seconds_until_start <= self.now_playing_window_minutes * 60:
+                    return "upcoming"
+            return None
+
+        # Recently finished (estimate full-time as kick-off + typical duration)
+        if status in ["FT", "PENS"] and start_dt:
+            end_dt = start_dt + timedelta(
+                minutes=self.estimated_match_duration_minutes
+            )
+            seconds_since_end = (datetime.now() - end_dt).total_seconds()
+            if 0 <= seconds_since_end <= self.now_playing_window_minutes * 60:
+                return "finished"
+
+        return None
+
+    def collect_now_playing_matches(self) -> List[Dict]:
+        """Fetch today's fixtures across all leagues and keep Now Playing ones"""
+        all_matches = self.fetch_matches(0)
+        entries: List[Dict] = []
+
+        if not all_matches:
+            return entries
+
+        for league_name, matches in all_matches.items():
+            for match in matches:
+                category = self.classify_now_playing_match(match)
+                if not category:
+                    continue
+
+                entry = dict(match)
+                entry["category"] = category
+                entry["start_dt"] = self.get_match_start_datetime(match)
+                entries.append(entry)
+
+        category_order = {"live": 0, "upcoming": 1, "finished": 2}
+        fallback_ts = datetime.max.timestamp()
+
+        def sort_key(entry: Dict):
+            rank = category_order[entry["category"]]
+            start_dt = entry["start_dt"]
+            ts = start_dt.timestamp() if start_dt else fallback_ts
+            # Finished matches: most recently ended first; others: soonest first
+            return (rank, -ts if rank == 2 else ts)
+
+        entries.sort(key=sort_key)
+        return entries
+
+    def display_now_playing(self, entries: List[Dict]):
+        """Display the Now Playing section grouped by category"""
+        print(
+            f"{self.get_color('bold')}{self.get_color('bright_cyan')}{'=' * 70}{self.get_color('reset')}"
+        )
+        print(
+            f"{self.get_color('bold')}{self.get_color('bright_blue')} ⚽ NOW PLAYING - ALL LEAGUES ⚽ {self.get_color('reset')}"
+        )
+        print(f"{self.get_color('bright_cyan')}{'=' * 70}{self.get_color('reset')}")
+        print()
+
+        if not entries:
+            print(
+                f"{self.get_color('yellow')}No matches are currently live, starting within "
+                f"{self.now_playing_window_minutes} minutes, or finished within the last "
+                f"{self.now_playing_window_minutes} minutes.{self.get_color('reset')}"
+            )
+            return
+
+        section_headers = {
+            "live": ("LIVE NOW", "bright_red"),
+            "upcoming": (
+                f"STARTING SOON (NOT YET STARTED)",
+                "bright_green",
+            ),
+            "finished": ("JUST FINISHED", "bright_magenta"),
+        }
+
+        current_category = None
+        for entry in entries:
+            category = entry["category"]
+
+            if category != current_category:
+                current_category = category
+                header_text, header_color = section_headers[category]
+                print(
+                    f"\n{self.get_color('bold')}{self.get_color(header_color)}--- {header_text} ---{self.get_color('reset')}"
+                )
+
+            league_name = entry.get("league", "")
+            home_team = entry.get("home_team", "N/A")
+            away_team = entry.get("away_team", "N/A")
+            home_score = entry.get("home_score", 0)
+            away_score = entry.get("away_score", 0)
+            status = entry.get("status", "")
+
+            if category == "live":
+                badge = status if "'" in status else f"[{status}]"
+                note = ""
+                score_display = (
+                    f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}"
+                    if home_score or away_score
+                    else "vs"
+                )
+            elif category == "upcoming":
+                badge = "[NOT STARTED]"
+                note = ""
+                minutes_until = None
+                if entry["start_dt"]:
+                    minutes_until = int(
+                        max(
+                            0,
+                            round(
+                                (
+                                    entry["start_dt"] - datetime.now()
+                                ).total_seconds()
+                                / 60
+                            ),
+                        )
+                    )
+                    note = (
+                        f" (starts in {minutes_until} min)"
+                        if minutes_until is not None
+                        else ""
+                    )
+                score_display = "vs"
+            else:  # finished
+                badge = "[JUST FINISHED]"
+                note = " (FT)"
+                score_display = (
+                    f"{self.get_color('bold')}{home_score}-{away_score}{self.get_color('reset')}"
+                )
+
+            print(
+                f"{self.get_color('yellow')}{entry.get('time', ''):>5}{self.get_color('reset')} "
+                f"{home_team} {score_display} {away_team} "
+                f"{self.get_color(section_headers[category][1])}{badge}{self.get_color('reset')}"
+                f"{note} {self.get_color('cyan')}({league_name}){self.get_color('reset')}"
+            )
+
+    def show_now_playing(self):
+        """Now Playing view with auto-refresh across all leagues.
+
+        Shows live matches, matches starting within the next 30 minutes and
+        matches that finished within the last 30 minutes. Refreshes
+        automatically until the user presses Ctrl+C.
+        """
+        print(
+            f"{self.get_color('green')}Loading Now Playing (all leagues)...{self.get_color('reset')}"
+        )
+        print(
+            f"{self.get_color('cyan')}Refreshes every {self.now_playing_refresh_seconds} seconds. Press Ctrl+C to return to menu.{self.get_color('reset')}"
+        )
+        time.sleep(1)
+
+        try:
+            while True:
+                self.clear_screen()
+
+                updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(
+                    f"{self.get_color('bold')}{self.get_color('bright_blue')}Last Updated: {updated_at}{self.get_color('reset')}"
+                )
+                print()
+
+                entries = self.collect_now_playing_matches()
+                self.display_now_playing(entries)
+
+                print(
+                    f"\n{self.get_color('cyan')}Next update in {self.now_playing_refresh_seconds} seconds... (Ctrl+C to return to menu){self.get_color('reset')}"
+                )
+                time.sleep(self.now_playing_refresh_seconds)
+
+        except KeyboardInterrupt:
+            print(
+                f"\n{self.get_color('yellow')}Returning to menu...{self.get_color('reset')}"
+            )
+            time.sleep(1)
+
     def auto_update_league(self, league_choice: str, date_offset: int = 0):
         """Auto-update a specific league every 30 seconds"""
         league_name = self.leagues[league_choice]["name"]
@@ -4000,6 +4228,8 @@ class FootballScraper:
                 self.show_date_menu(-1)  # Yesterday
             elif choice.lower() == "t":
                 self.show_date_menu(1)  # Tomorrow
+            elif choice.lower() == "n":
+                self.show_now_playing()  # Now Playing (all leagues)
             elif choice.lower() == "s":
                 self.show_stream_search_menu()  # Stream search
             elif choice in self.leagues:
