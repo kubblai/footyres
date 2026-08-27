@@ -2,7 +2,6 @@
 # Football Scraper Runner Script
 
 PYTHON_BIN="${PYTHON_BIN:-python3.14}"
-PIP_VERSION="${PIP_VERSION:-26.0.1}"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     if command -v python3 >/dev/null 2>&1; then
@@ -17,6 +16,8 @@ if ! "$PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,
     echo "Error: Python 3.14 or newer is required."
     exit 1
 fi
+
+PIP_VERSION="${PIP_VERSION:-$("$PYTHON_BIN" -c 'import ensurepip; print(ensurepip.version())' 2>/dev/null)}"
 
 # Check for --help flag
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
